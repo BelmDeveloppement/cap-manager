@@ -1,0 +1,585 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>CAP MANAGER</title>
+<meta name="description" content="CAP MANAGER : jeu de plateau de management situationnel, avec application téléphone.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@500;600;700;800&display=swap">
+<style>
+/* Mise en page : écran étroit à une colonne pour le joueur, deux colonnes (situation | joueurs) pour l'animateur.
+   Palette du jeu papier : marine, crème, ocre, quatre couleurs de style. */
+:root{
+  --bg:#FBF9F2; --surface:#FFFFFF; --soft:#F2EEE1; --ink:#1A2346; --muted:#5A6082; --line:#DDD8C6;
+  --navy:#1F2A5C; --on-navy:#FFFFFF; --ocre:#8F6A08; --ok:#1E7A52; --warn:#B3481F;
+  --dir:#E4572E; --ent:#E9A400; --ass:#2E9E6B; --con:#3B6FD8;
+  --f-title:'Baloo 2','Trebuchet MS',system-ui,sans-serif; --f-body:'Nunito',system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#11163A; --surface:#1A2150; --soft:#161C47; --ink:#EEF0FA; --muted:#A5ABCE; --line:#313A70;
+  --navy:#E9B949; --on-navy:#1A2346; --ocre:#E9B949; --ok:#59C896; --warn:#FF9A73; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11163A; --surface:#1A2150; --soft:#161C47; --ink:#EEF0FA; --muted:#A5ABCE; --line:#313A70;
+  --navy:#E9B949; --on-navy:#1A2346; --ocre:#E9B949; --ok:#59C896; --warn:#FF9A73; color-scheme:dark}
+*{box-sizing:border-box}
+html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html,body{min-height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.45;
+  padding-block:0; padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{font-family:var(--f-title);line-height:1.1;margin:0;text-wrap:balance}
+p{margin:0}
+.wrap{max-width:560px;margin:0 auto;padding-block:14px 40px;display:flex;flex-direction:column;gap:14px}
+.wrap.wide{max-width:1040px}
+.brand{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0}
+.brand b{font-family:var(--f-title);font-weight:800;font-size:19px;letter-spacing:.04em}
+.dots{display:flex;gap:5px}.dots i{width:11px;height:11px;border-radius:50%}
+.pill{display:inline-block;font-family:var(--f-title);font-weight:700;font-size:13px;letter-spacing:.16em;text-transform:uppercase;
+  padding:4px 14px;border-radius:99px;background:var(--navy);color:var(--on-navy)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;min-width:0}
+.soft{background:var(--soft);border-radius:12px;padding:12px 14px}
+.muted{color:var(--muted)} .small{font-size:14px} .tiny{font-size:12.5px}
+.btn{font-family:var(--f-title);font-weight:700;font-size:18px;border:0;border-radius:12px;padding:13px 18px;cursor:pointer;
+  background:var(--navy);color:var(--on-navy);min-height:48px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
+.btn.sm{font-size:15px;padding:8px 14px;min-height:40px}
+.btn.block{width:100%}
+:focus-visible{outline:3px solid var(--con);outline-offset:2px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.grow{flex:1;min-width:0}
+input[type=text]{font:inherit;font-weight:700;font-size:18px;padding:12px 14px;border-radius:10px;border:1.5px solid var(--line);
+  background:var(--surface);color:var(--ink);width:100%;min-height:48px}
+label.f{display:flex;flex-direction:column;gap:5px;font-weight:700;font-size:14px;color:var(--muted)}
+.who{display:flex;gap:14px;align-items:center}
+.av{flex:none;width:58px;height:58px;border-radius:50%;background:var(--navy);color:var(--on-navy);display:grid;place-items:center;
+  font-family:var(--f-title);font-weight:800;font-size:30px}
+.who h2{font-size:28px}
+.sit{font-size:19px;line-height:1.5}
+.styles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sb{border:3px solid transparent;border-radius:14px;padding:14px 12px;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:6px;
+  font-family:var(--f-body);min-height:116px}
+.sb svg{width:30px;height:30px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.sb b{font-family:var(--f-title);font-weight:800;font-size:19px;letter-spacing:.03em}
+.sb span{font-size:13.5px;line-height:1.25;font-weight:600}
+.sb.sel{border-color:var(--ink);box-shadow:0 0 0 3px var(--bg),0 0 0 6px var(--ink)}
+.sb.dim{opacity:.55}
+.profs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pf{border:1.5px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;padding:10px;font:inherit;font-weight:700;font-size:14.5px;cursor:pointer;min-height:44px}
+.pf.sel{background:var(--navy);color:var(--on-navy);border-color:var(--navy)}
+.gauge{display:flex;gap:6px;align-items:center}.gauge i{width:20px;height:20px;border-radius:50%;background:var(--line)}
+.gl{display:grid;grid-template-columns:110px 1fr;gap:6px;align-items:center;font-weight:800;font-size:15px}
+.ideal{border-radius:14px;padding:14px 16px;display:flex;gap:14px;align-items:center}
+.ideal svg{width:40px;height:40px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.ideal small{display:block;font-weight:800;letter-spacing:.1em;font-size:12px}
+.ideal b{font-family:var(--f-title);font-size:28px;font-weight:800;line-height:1}
+.big{font-family:var(--f-title);font-weight:800;font-size:64px;line-height:1}
+.res{display:flex;flex-direction:column;gap:8px}
+.rr{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:9px 12px;border-radius:10px;background:var(--soft)}
+.rr.me{outline:2px solid var(--ink)}
+.chip{font-weight:800;font-size:13px;padding:3px 10px;border-radius:99px;white-space:nowrap}
+.steps{font-family:var(--f-title);font-weight:800;font-size:20px;min-width:52px;text-align:right}
+.code{font-family:var(--f-title);font-weight:800;font-size:64px;letter-spacing:.14em;line-height:1}
+.two{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:14px;align-items:start}
+@media (max-width:760px){.two{grid-template-columns:1fr}}
+.pl{display:flex;flex-direction:column;gap:6px}
+.pr{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:var(--soft);min-width:0}
+.pr .nm{flex:1;min-width:0;overflow-wrap:anywhere;font-weight:700}
+.tag{font-size:12px;font-weight:800;padding:2px 8px;border-radius:99px;background:var(--line);color:var(--ink)}
+.tag.on{background:var(--ok);color:#fff}
+.me-t{font-size:12px;font-weight:800;color:var(--muted)}
+.cover{position:fixed;inset:0;z-index:50;background:var(--bg);overflow:auto;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 24px max(16px,env(safe-area-inset-left,0px))}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left}
+th{font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.tw{overflow-x:auto}
+.mx{table-layout:fixed}.mx th{text-transform:none;letter-spacing:0;font-size:12px;padding:7px 2px}.mx td{padding:9px 2px}.mx th:first-child,.mx td.hd{width:27%}.mx td,.mx th{text-align:center}.mx td.hd{text-align:left;font-weight:800}
+.mx td.diag{outline:2px solid var(--ok);outline-offset:-2px}
+.toggle{display:flex;align-items:center;gap:10px;font-weight:700;cursor:pointer}
+.toggle input{width:22px;height:22px}
+.note{border-left:4px solid var(--ocre);padding:4px 0 4px 12px}
+.err{color:var(--warn);font-weight:700}
+.tg{display:flex;gap:8px;flex-wrap:wrap}
+.hint{font-size:14px;color:var(--muted)}
+@media (prefers-reduced-motion:no-preference){.sb{transition:transform .08s}.sb:active{transform:scale(.97)}}
+</style>
+</head><!-- © 2026 SAS BELM DEVELOPPEMENT. Tous droits réservés. Reproduction interdite sans autorisation. -->
+<body>
+<div id="app"></div>
+<footer style="text-align:center;color:var(--muted);font-size:12.5px;padding:18px 16px 28px">© 2026 SAS BELM DEVELOPPEMENT. Tous droits réservés. Management situationnel : le jeu s’inspire de l’idée d’adapter son style à l’autonomie de la personne ; noms, situations et graphismes originaux.</footer>
+<script src="vendor/qrcode.js"></script>
+<script src="vendor/peerjs.min.js"></script>
+<script>
+/* ===================================================== Données : 72 situations */
+const SIT = [{"n": 1, "t": "ARRIVÉE", "p": "Chloé", "s": "24 ans · chargée de clientèle", "r": "N", "sf": 1, "en": 5, "x": "Chloé arrive lundi pour son premier poste. Elle a hâte de commencer et pose mille questions. Cette semaine, vous devez lui confier son premier dossier client.", "w": "Beaucoup d’envie, peu de savoir-faire : elle a besoin d’un cadre clair, d’étapes précises et d’un suivi proche."}, {"n": 2, "t": "CLIMAT", "p": "Thomas", "s": "27 ans · commercial junior", "r": "D", "sf": 2, "en": 1, "x": "Thomas a raté trois rendez-vous clés d’affilée. Il évite maintenant les clients difficiles et vous dit : « Je ne suis peut-être pas fait pour ça. »", "w": "Il manque d’outils ET de confiance : montrez-lui comment faire, mais surtout écoutez-le et encouragez ses petits succès."}, {"n": 3, "t": "CHANGEMENT", "p": "Karim", "s": "45 ans · comptable", "r": "E", "sf": 5, "en": 2, "x": "Karim maîtrise la clôture mensuelle mieux que personne. Depuis la réorganisation, il rend en retard et ne dit plus un mot en réunion.", "w": "Le talent est là, l’envie a baissé : ne lui dictez rien, ouvrez le dialogue et cherchez ensemble ce qui bloque."}, {"n": 4, "t": "AUTONOMIE", "p": "Inès", "s": "36 ans · cheffe de projet", "r": "A", "sf": 5, "en": 5, "x": "Inès pilote seule le déploiement du nouvel outil depuis deux ans, avec d’excellents résultats. Elle vous demande de la laisser organiser le lancement à sa façon.", "w": "Compétente et motivée : donnez le cap, fixez le résultat attendu, puis laissez-lui les commandes."}, {"n": 5, "t": "COUP DE FEU", "p": "Lucas", "s": "22 ans · apprenti cuisinier", "r": "N", "sf": 1, "en": 5, "x": "Lucas est dans la brigade depuis trois jours. Il arrive en avance et pose mille questions, mais n’a jamais tenu un poste en plein service. Ce soir, il est aux entrées.", "w": "Très motivé, aucune expérience du coup de feu : il lui faut des consignes précises, un ordre de tâches et quelqu’un à côté."}, {"n": 6, "t": "ÉCHEC", "p": "Mélanie", "s": "28 ans · technicienne de laboratoire", "r": "D", "sf": 2, "en": 1, "x": "Mélanie a perdu un échantillon le mois dernier. Depuis, elle recompte tout deux fois, prend du retard et répète : « Je ne suis plus sûre de rien. »", "w": "Elle doute et manque de repères : rappelez la méthode, expliquez ce qui a dérapé et valorisez chaque tâche réussie."}, {"n": 7, "t": "RECONNAISSANCE", "p": "Gilles", "s": "52 ans · technicien de maintenance", "r": "E", "sf": 5, "en": 2, "x": "Gilles connaît les machines depuis vingt-huit ans. Depuis l’arrivée de la nouvelle direction, on ne le consulte plus. Il répond « comme vous voulez » à tout.", "w": "Son savoir est intact, c’est sa place qui lui manque : demandez son avis avant de décider et cherchez la solution avec lui."}, {"n": 8, "t": "TRANSPORT", "p": "Sacha", "s": "34 ans · responsable logistique", "r": "A", "sf": 5, "en": 5, "x": "Sacha gère trois entrepôts sans incident depuis quatre ans. Il vous demande de choisir lui-même le nouveau transporteur, dans le budget fixé.", "w": "Expert et engagé : fixez le budget et le délai, puis laissez-le décider. Restez disponible s’il vous sollicite."}, {"n": 9, "t": "PROMOTION", "p": "Sofiane", "s": "31 ans · chef d’équipe", "r": "N", "sf": 1, "en": 5, "x": "Sofiane vient d’être nommé chef d’équipe et en est ravi. Il n’a jamais animé de réunion. Lundi, il doit conduire son premier point avec huit personnes.", "w": "Il a l’envie, pas encore les gestes : donnez-lui un ordre du jour type, répétez avec lui, puis soyez présent à la réunion."}, {"n": 10, "t": "FUSION", "p": "Julien", "s": "30 ans · gestionnaire de paie", "r": "D", "sf": 2, "en": 1, "x": "Julien accumule les retards de saisie depuis la fusion des deux services. Il fait des erreurs, s’excuse sans cesse et dit qu’il « n’y arrivera jamais ».", "w": "Il perd pied et confiance : clarifiez les priorités, montrez une méthode et encouragez chaque progrès."}, {"n": 11, "t": "IDÉES", "p": "Farid", "s": "38 ans · ingénieur qualité", "r": "E", "sf": 5, "en": 2, "x": "Farid a proposé trois améliorations de process l’an dernier : aucune n’a été suivie. Il ne propose plus rien et applique les procédures, sans plus.", "w": "L’expertise est là, la confiance dans l’écoute a disparu : reprenez ses idées avec lui et décidez ensemble de la suite."}, {"n": 12, "t": "PROTOTYPE", "p": "Maëlys", "s": "29 ans · développeuse", "r": "A", "sf": 4, "en": 5, "x": "Maëlys a monté de sa propre initiative un prototype qui séduit deux clients. Elle tient tous ses objectifs et demande deux jours par semaine pour le finaliser.", "w": "Compétente et très motivée : validez le résultat attendu et le délai, puis laissez-la s’organiser."}, {"n": 13, "t": "CLIENT", "p": "Nora", "s": "25 ans · conseillère bancaire", "r": "N", "sf": 2, "en": 5, "x": "Nora attend avec impatience son premier client pour un prêt immobilier. Elle connaît les produits sur le papier, jamais face à un client. Rendez-vous demain, 10 h.", "w": "Elle a l’envie, pas la pratique : donnez-lui le déroulé de l’entretien, jouez la scène avec elle et soyez là au début."}, {"n": 14, "t": "RETOUR", "p": "Awa", "s": "35 ans · commerciale", "r": "D", "sf": 2, "en": 1, "x": "Awa revient après huit mois d’absence. Le logiciel de vente a changé et deux de ses clients ont été repris. Elle dit : « Tout a changé, je n’y arrive plus. »", "w": "Elle a perdu ses repères, pas son talent : expliquez les nouveautés, rassurez-la et fêtez ses premiers succès."}, {"n": 15, "t": "CARRIÈRE", "p": "Nadège", "s": "41 ans · développeuse senior", "r": "E", "sf": 5, "en": 2, "x": "Nadège a vu la promotion qu’elle attendait revenir à un collègue plus jeune. Son travail reste impeccable, mais elle ne se porte plus volontaire pour rien.", "w": "Compétence intacte, motivation blessée : ouvrez la discussion sur ses attentes et cherchez avec elle un rôle qui lui convienne."}, {"n": 16, "t": "CHANTIER", "p": "Joseph", "s": "43 ans · chef de chantier", "r": "A", "sf": 5, "en": 5, "x": "Joseph a livré ses trois derniers chantiers dans les délais et le budget. Il vous demande de ne plus faire valider son planning chaque semaine, seulement les jalons.", "w": "Il a prouvé sa maîtrise : fixez les jalons à tenir et laissez-le piloter. Un point à chaque jalon suffit."}, {"n": 17, "t": "SÉCURITÉ", "p": "Mathieu", "s": "20 ans · intérimaire en entrepôt", "r": "N", "sf": 1, "en": 5, "x": "Mathieu est intérimaire depuis ce matin. Il veut montrer ce qu’il vaut et propose de conduire le chariot élévateur « parce qu’il a déjà essayé ». Il n’a pas l’habilitation.", "w": "Beaucoup d’envie, aucune habilitation : sur la sécurité, on dit clairement ce qui est permis, et on forme avant de laisser faire."}, {"n": 18, "t": "CONFLIT", "p": "Mehdi", "s": "26 ans · développeur junior", "r": "D", "sf": 2, "en": 1, "x": "Après une revue de code très sèche d’un collègue, Mehdi ne répond plus aux messages et n’ose plus proposer de modification. Son travail stagne depuis une semaine.", "w": "Il a perdu confiance après une critique : expliquez ce qui était juste, montrez comment progresser et encouragez-le."}, {"n": 19, "t": "CHARGE", "p": "Odile", "s": "50 ans · infirmière coordinatrice", "r": "E", "sf": 5, "en": 1, "x": "Odile tient le planning du service avec rigueur. Depuis trois mois, les remplacements ne sont plus assurés. Elle est froide en réunion et ne propose plus de solutions.", "w": "Elle sait organiser, mais elle est à bout : écoutez ce qui pèse et cherchez ensemble des solutions réalistes."}, {"n": 20, "t": "QUALITÉ", "p": "Leïla", "s": "40 ans · ingénieure qualité", "r": "A", "sf": 5, "en": 5, "x": "Leïla enchaîne trois audits sans aucun écart. Elle vous demande de conduire seule l’audit du client le plus exigeant, du cadrage au rapport.", "w": "Fiabilité prouvée : donnez le cap (objectif, date) et laissez-lui la méthode. Rendez-vous au rapport final."}, {"n": 21, "t": "TÉLÉTRAVAIL", "p": "Clara", "s": "24 ans · assistante de gestion", "r": "D", "sf": 2, "en": 1, "x": "Clara travaille à distance depuis deux mois. Elle envoie des fichiers incomplets, ne pose plus de questions et coupe sa caméra en visio. Elle semble ne plus y croire.", "w": "Isolée, elle ne sait plus comment bien faire : fixez des points réguliers, expliquez les attentes et encouragez-la."}, {"n": 22, "t": "OBJECTIFS", "p": "Raphaël", "s": "44 ans · commercial grands comptes", "r": "E", "sf": 5, "en": 2, "x": "Raphaël est votre meilleur vendeur depuis dix ans. Depuis le changement de quotas, il ne prospecte plus et dit : « Faites ce que vous voulez de mes objectifs. »", "w": "Son talent n’est pas en cause, sa motivation si : discutez des quotas avec lui et construisez des objectifs justes."}, {"n": 23, "t": "FORMATION", "p": "Zoé", "s": "32 ans · formatrice", "r": "A", "sf": 5, "en": 5, "x": "Zoé a refondu seule son parcours de formation, noté 4,8 sur 5 par les stagiaires. Elle veut animer la prochaine session à sa façon, avec un nouveau format.", "w": "Résultats prouvés : fixez l’objectif pédagogique et la date, puis faites-lui confiance sur la méthode."}, {"n": 24, "t": "MOBILITÉ", "p": "Priya", "s": "34 ans · ingénieure", "r": "N", "sf": 1, "en": 5, "x": "Priya passe du bureau d’études à la maintenance, un métier qu’elle a choisi. Elle déborde d’énergie, mais ne connaît ni les machines ni les procédures du site.", "w": "Nouveau métier, grand enthousiasme : cadrez les premières semaines, montrez les procédures et faites un point chaque jour."}, {"n": 25, "t": "ÉQUIPE", "p": "Inaya", "s": "39 ans · data analyst", "r": "E", "sf": 5, "en": 2, "x": "Depuis la fusion de son équipe avec une autre, Inaya travaille seule dans son coin. Elle décline les ateliers et ses analyses, toujours justes, arrivent sans commentaire.", "w": "Sa compétence ne fait aucun doute : demandez-lui ce qui a changé et décidez avec elle de sa place dans la nouvelle équipe."}, {"n": 26, "t": "ASTREINTE", "p": "Bastien", "s": "28 ans · technicien de maintenance", "r": "A", "sf": 5, "en": 5, "x": "Bastien dépanne les clients seul depuis deux ans, avec les meilleurs délais du service. Il vous propose de gérer lui-même la rotation d’astreinte de l’équipe.", "w": "Compétent et fiable : posez les règles du jeu (couverture, délais) et laissez-le organiser la rotation."}, {"n": 27, "t": "NOUVEL OUTIL", "p": "Paul", "s": "40 ans · magasinier", "r": "D", "sf": 2, "en": 1, "x": "Paul fait trois erreurs d’inventaire avec le nouveau scanner. Il hausse les épaules : « De toute façon, ça ne sert à rien. » Il contourne l’outil dès qu’il peut.", "w": "Il ne maîtrise pas l’outil et n’en voit pas l’intérêt : expliquez le pourquoi, montrez les bons gestes et encouragez."}, {"n": 28, "t": "CAMPAGNE", "p": "Léo", "s": "23 ans · stagiaire marketing", "r": "N", "sf": 1, "en": 5, "x": "Léo est en deuxième semaine de stage et déborde d’idées. Il propose de lancer seul la campagne d’e-mails de la semaine prochaine, auprès de 12 000 contacts.", "w": "Dynamique mais sans expérience d’un envoi large : cadrez les étapes, faites valider chaque envoi et félicitez les bonnes idées."}, {"n": 29, "t": "PREMIÈRE PAIE", "p": "Amélie", "s": "29 ans · assistante RH", "r": "N", "sf": 1, "en": 5, "x": "Amélie est ravie d’avoir rejoint la RH. Elle doit préparer sa première paie, avec un logiciel qu’elle n’a jamais utilisé, des primes et des heures supplémentaires.", "w": "Beaucoup d’envie, aucune pratique : donnez les étapes dans l’ordre, contrôlez les calculs et félicitez chaque étape réussie."}, {"n": 30, "t": "RÉORGANISATION", "p": "Karl", "s": "37 ans · responsable service client", "r": "A", "sf": 5, "en": 5, "x": "Karl dirige un service client depuis trois ans, avec un NPS de +45. Il vous propose de réorganiser son équipe en pôles, selon un plan qu’il a déjà chiffré.", "w": "Compétent et engagé : fixez les limites (budget, délais) et laissez-le conduire sa réorganisation. Un point d’étape suffit."}, {"n": 31, "t": "SUPERVISION", "p": "Hugo", "s": "23 ans · analyste SOC junior", "r": "N", "sf": 1, "en": 5, "x": "Hugo vient de rejoindre le centre de supervision. Il veut traiter seul ses premières alertes dès demain, mais n’a jamais utilisé l’outil de corrélation des événements.", "w": "Il a l’élan, pas encore les réflexes : donnez la marche à suivre pour trier une alerte, restez à côté pour les premières et corrigez en direct."}, {"n": 32, "t": "DÉLAIS", "p": "Sonia", "s": "31 ans · cheffe de projet adjointe", "r": "D", "sf": 2, "en": 1, "x": "Sonia a manqué deux jalons de suite. Elle ne répond plus aux relances, repousse les points d’avancement et dit : « De toute façon, ça ne changera rien. »", "w": "Elle manque de méthode et de moral : reprenez le planning avec elle, montrez comment découper, écoutez ce qui bloque et valorisez le premier jalon tenu."}, {"n": 33, "t": "RACHAT", "p": "Bernard", "s": "55 ans · responsable maintenance", "r": "E", "sf": 5, "en": 2, "x": "Bernard connaît chaque ligne de production. Depuis le rachat du site, il ne vient plus aux réunions de service et répond par monosyllabes quand on lui demande son avis.", "w": "Son savoir est entier, c’est son implication qui s’est éteinte : demandez-lui son analyse du rachat et construisez la suite avec lui."}, {"n": 34, "t": "CERTIFICATION", "p": "Éva", "s": "35 ans · RSSI adjointe", "r": "A", "sf": 5, "en": 5, "x": "Éva a conduit seule deux audits de conformité réussis. Elle propose de piloter la certification ISO 27001 du site, avec son propre planning et ses propres équipes.", "w": "Compétence et motivation sont prouvées : fixez l’échéance et le budget, puis laissez-la piloter. Un point par jalon suffit."}, {"n": 35, "t": "OUVERTURE", "p": "Fatou", "s": "21 ans · employée de boutique (job d’été)", "r": "N", "sf": 1, "en": 5, "x": "Fatou démarre son premier job d’été. Elle propose d’ouvrir seule la boutique samedi, alors qu’elle n’a pas encore fait la caisse ni le contrôle du fonds de caisse.", "w": "Envie réelle, aucune pratique de la caisse : décrivez les étapes d’ouverture dans l’ordre, faites-les avec elle, puis contrôlez le fonds de caisse."}, {"n": 36, "t": "MIGRATION", "p": "Rémi", "s": "33 ans · administrateur système", "r": "D", "sf": 2, "en": 1, "x": "Rémi a raté la migration d’un serveur : deux heures d’indisponibilité. Il n’ose plus toucher à la production et demande à un collègue de valider chacune de ses commandes.", "w": "Il a perdu ses repères et sa confiance : revoyez la procédure avec lui, expliquez ce qui a dérapé et confiez-lui d’abord de petites opérations réussies."}, {"n": 37, "t": "PRIME", "p": "Sylvie", "s": "47 ans · gestionnaire de contrats", "r": "E", "sf": 5, "en": 2, "x": "Sylvie est la seule à maîtriser les contrats historiques. Depuis la suppression de sa prime, elle fait exactement ce qui est écrit sur sa fiche de poste, rien de plus.", "w": "Elle sait faire, elle ne veut plus : écoutez ce que la suppression de la prime a changé pour elle et cherchez ensemble une contrepartie juste."}, {"n": 38, "t": "COMMERCE", "p": "Marc", "s": "41 ans · responsable de magasin", "r": "A", "sf": 5, "en": 5, "x": "Marc a augmenté ses ventes de 12 % deux années de suite. Il vous demande de décider seul du réaménagement de ses rayons, dans l’enveloppe prévue.", "w": "Résultats prouvés et motivation intacte : confirmez le budget et la date, puis laissez-le décider de l’aménagement."}, {"n": 39, "t": "ACHATS", "p": "Kevin", "s": "26 ans · acheteur junior", "r": "N", "sf": 1, "en": 5, "x": "Kevin est impatient de mener sa première négociation fournisseur. Il vous annonce qu’il va « tout demander » dès le premier rendez-vous. Il n’a jamais préparé de plan de négociation.", "w": "Motivé mais novice : cadrez la préparation (objectifs, marges, concessions), assistez au rendez-vous et félicitez ce qui est bien préparé."}, {"n": 40, "t": "PRÉVISION", "p": "Marion", "s": "29 ans · contrôleuse de gestion", "r": "D", "sf": 2, "en": 1, "x": "Marion s’est trompée dans une prévision présentée au comité. Depuis, elle repasse tout cinq fois, rend tard et dit : « Je n’ai plus confiance dans mes chiffres. »", "w": "Elle doute de sa méthode : montrez une procédure de contrôle simple, expliquez l’erreur sans la lui reprocher et valorisez chaque rendu fiable."}, {"n": 41, "t": "REPORTING", "p": "Olivier", "s": "39 ans · architecte logiciel", "r": "E", "sf": 5, "en": 2, "x": "Olivier conçoit des solutions solides, mais depuis qu’on lui impose un reporting hebdomadaire de plus, il rend en retard et ne vient plus aux revues d’architecture.", "w": "Compétence intacte, engagement en baisse : demandez-lui ce qui l’irrite dans ce reporting et trouvez ensemble un format qui lui paraît utile."}, {"n": 42, "t": "PLANIFICATION", "p": "Yasmine", "s": "37 ans · planificatrice de production", "r": "A", "sf": 5, "en": 5, "x": "Yasmine a réorganisé seule les plannings d’atelier, avec 8 % de retards en moins. Elle souhaite maintenant tester un nouveau découpage des équipes sur un trimestre.", "w": "Elle a fait ses preuves et en veut davantage : fixez l’objectif de retards et la durée du test, puis laissez-la organiser."}, {"n": 43, "t": "AUDIT", "p": "Anaïs", "s": "25 ans · auditrice interne junior", "r": "N", "sf": 2, "en": 5, "x": "Anaïs adore sa nouvelle mission. Lundi, elle doit mener son premier entretien d’audit avec un directeur, sans avoir vu la méthode d’entretien ni la trame de questions.", "w": "Très motivée, peu outillée : donnez-lui la trame de questions, répétez l’entretien avec elle et débriefez ensuite, étape par étape."}, {"n": 44, "t": "LIVRAISON", "p": "Mourad", "s": "36 ans · chauffeur-livreur", "r": "D", "sf": 2, "en": 1, "x": "Après un accident évitable sans gravité, Mourad conduit en tremblant et refuse les tournées complexes. Il dit que le nouveau système de navigation « n’est plus pour lui ».", "w": "Il manque d’aisance avec l’outil et de confiance : montrez le système sur une tournée simple, écoutez sa peur et félicitez chaque tournée sans incident."}, {"n": 45, "t": "SUCCESSION", "p": "Hélène", "s": "58 ans · cheffe comptable", "r": "E", "sf": 5, "en": 2, "x": "Hélène forme son successeur depuis six mois. Son travail reste irréprochable, mais elle ne propose plus aucune amélioration et regarde sa montre en réunion.", "w": "Le savoir-faire est total, l’envie s’est repliée : demandez-lui ce qu’elle voudrait laisser derrière elle et cherchez avec elle un rôle qui a du sens."}, {"n": 46, "t": "APPEL D’OFFRES", "p": "Damien", "s": "45 ans · responsable avant-vente", "r": "A", "sf": 5, "en": 5, "x": "Damien a remporté quatre appels d’offres majeurs. Il vous demande de conduire le prochain de A à Z, y compris le choix des partenaires.", "w": "Il a prouvé sa maîtrise et il est partant : donnez l’objectif de marge et la date de remise, puis laissez-le choisir ses partenaires."}, {"n": 47, "t": "SERVICE", "p": "Ibrahim", "s": "19 ans · apprenti serveur", "r": "N", "sf": 1, "en": 5, "x": "Ibrahim sert pour la première fois en salle un vendredi soir, 80 couverts. Il a hâte et se propose pour prendre tout de suite les commandes de la grande table.", "w": "Beaucoup d’envie, aucune pratique du service : attribuez-lui d’abord des tâches précises, montrez le circuit des commandes et restez en salle avec lui."}, {"n": 48, "t": "RECRUTEMENT", "p": "Pauline", "s": "27 ans · chargée de recrutement", "r": "D", "sf": 2, "en": 1, "x": "Pauline a perdu deux candidats en finale faute de suivi. Elle ne présente plus de profils au responsable et passe ses journées sur des tâches administratives.", "w": "Elle ne sait plus comment relancer et n’ose plus : construisez avec elle une trame de suivi, écoutez son blocage et félicitez le premier candidat suivi."}, {"n": 49, "t": "BUREAU PARTAGÉ", "p": "Tarek", "s": "44 ans · ingénieur méthodes", "r": "E", "sf": 5, "en": 2, "x": "Depuis le passage en bureaux partagés, Tarek télétravaille chaque fois que possible et ne répond plus aux discussions de l’équipe. Ses livrables restent excellents.", "w": "Compétence évidente, lien rompu : demandez-lui comment il voit le travail en équipe aujourd’hui et décidez ensemble de l’organisation."}, {"n": 50, "t": "ALTERNANCE", "p": "Sandrine", "s": "42 ans · directrice de formation", "r": "A", "sf": 5, "en": 5, "x": "Sandrine a monté deux cursus complets avec d’excellentes évaluations. Elle propose de créer un module en alternance, qu’elle financera sur son budget annuel.", "w": "Résultats et énergie au rendez-vous : validez l’enveloppe et l’échéance, puis laissez-la concevoir le module."}, {"n": 51, "t": "MISE EN PRODUCTION", "p": "Chen", "s": "24 ans · développeur junior", "r": "N", "sf": 1, "en": 5, "x": "Chen est ravi de recevoir son premier ticket de production. Il pense pouvoir déployer dès ce soir, mais ne connaît ni la procédure de mise en production ni les tests à passer.", "w": "Il a l’énergie, pas encore la procédure : donnez la liste des étapes, relisez avec lui avant le déploiement et félicitez chaque étape respectée."}, {"n": 52, "t": "TICKETS", "p": "Tomás", "s": "30 ans · technicien support", "r": "D", "sf": 2, "en": 1, "x": "Tomás a été vivement repris par un client en colère. Il ne décroche plus les appels difficiles et laisse s’accumuler les tickets complexes.", "w": "Il manque d’outils pour désamorcer et de confiance pour y retourner : montrez comment gérer un client en colère, écoutez-le et encouragez les petites victoires."}, {"n": 53, "t": "PROTOCOLES", "p": "Martine", "s": "51 ans · infirmière", "r": "E", "sf": 5, "en": 2, "x": "Martine fait les soins avec une grande sûreté. Depuis l’arrivée d’une nouvelle cadre qui ne l’a jamais consultée, elle applique les protocoles sans un mot et refuse d’encadrer les stagiaires.", "w": "Son expertise est reconnue, sa place ne l’est plus : demandez son avis sur l’organisation du service et décidez avec elle du rôle de tutrice."}, {"n": 54, "t": "DONNÉES", "p": "Anton", "s": "33 ans · data scientist", "r": "A", "sf": 5, "en": 5, "x": "Anton a livré trois modèles qui tiennent en production depuis un an. Il demande à choisir lui-même l’architecture du prochain, dans le budget cloud alloué.", "w": "Compétent et fiable : rappelez le budget et le résultat attendu, puis laissez-le choisir l’architecture."}, {"n": 55, "t": "TERRAIN", "p": "Élodie", "s": "27 ans · technico-commerciale", "r": "N", "sf": 1, "en": 5, "x": "Élodie vient de passer du siège au terrain. Elle veut visiter dix clients cette semaine, mais n’a jamais utilisé le CRM mobile ni préparé une tournée.", "w": "Elle est partante mais novice du terrain : construisez la tournée avec elle, montrez le CRM mobile et faites un point chaque soir."}, {"n": 56, "t": "TESTS", "p": "Ayla", "s": "26 ans · testeuse logicielle", "r": "D", "sf": 2, "en": 1, "x": "Ayla a laissé passer un bug critique en production. Elle ne signale plus ses doutes, valide vite pour ne pas déranger et s’excuse à chaque réunion.", "w": "Elle doute de son jugement et manque de critères : posez une liste de contrôle claire, expliquez ce qui a été manqué et encouragez les doutes signalés."}, {"n": 57, "t": "ASTREINTE NUIT", "p": "Patrick", "s": "49 ans · pilote d’exploitation", "r": "E", "sf": 5, "en": 2, "x": "Patrick résout les incidents les plus complexes. Il y a trois semaines, l’astreinte qu’il réclamait a été donnée à un collègue. Il ne se porte plus volontaire pour rien.", "w": "Compétence entière, motivation blessée : écoutez-le sur cette décision et cherchez ensemble comment rétablir sa place dans l’organisation."}, {"n": 58, "t": "CRISE", "p": "Imane", "s": "38 ans · responsable support", "r": "A", "sf": 5, "en": 5, "x": "Imane a géré seule trois crises clients sans escalade. Elle vous propose de rédiger le plan de gestion de crise du service et de le présenter elle-même à la direction.", "w": "Elle a fait ses preuves : précisez les contraintes (périmètre, date) et laissez-la rédiger et présenter son plan."}, {"n": 59, "t": "SOINS", "p": "Lucie", "s": "22 ans · aide-soignante", "r": "N", "sf": 1, "en": 5, "x": "Lucie est en poste depuis une semaine. Elle veut faire seule la toilette d’un patient âgé pour montrer qu’elle est capable, alors qu’elle n’a vu le protocole de manutention qu’en cours.", "w": "Beaucoup d’envie, aucune pratique de la manutention : sur la sécurité du patient, montrez les gestes, faites-les d’abord ensemble puis contrôlez."}, {"n": 60, "t": "ACCUEIL", "p": "Frédéric", "s": "42 ans · agent d’accueil en mairie", "r": "D", "sf": 2, "en": 1, "x": "Depuis la dématérialisation des démarches, Frédéric reçoit des usagers qu’il ne sait plus orienter. Il soupire, répond « je ne sais pas » et attend la fin de la journée.", "w": "Il ne maîtrise plus son métier et a décroché : expliquez le nouveau parcours usager, montrez-le sur des cas réels et encouragez chaque réponse juste."}, {"n": 61, "t": "MAQUETTES", "p": "Zhou", "s": "36 ans · designer produit", "r": "E", "sf": 5, "en": 2, "x": "Zhou est reconnue pour la qualité de ses maquettes. Depuis que ses choix sont systématiquement revus par la direction, elle ne présente plus qu’une seule version, sans l’expliquer.", "w": "Son talent est intact, sa voix ne compte plus à ses yeux : demandez-lui comment elle voudrait que ses choix soient discutés et décidez-le avec elle."}, {"n": 62, "t": "ATELIER", "p": "Vincent", "s": "48 ans · chef d’atelier", "r": "A", "sf": 5, "en": 5, "x": "Vincent tient ses objectifs de qualité depuis cinq ans et forme ses équipes lui-même. Il veut tester de nouveaux horaires dans son atelier pendant trois mois.", "w": "Expérience et motivation : posez les limites du test (durée, indicateurs) et laissez-le l’organiser."}, {"n": 63, "t": "TUTORAT", "p": "Yanis", "s": "28 ans · technicien et nouveau tuteur", "r": "N", "sf": 2, "en": 5, "x": "Yanis vient d’être désigné tuteur d’un apprenti. Il est fier et veut commencer dès lundi, mais n’a jamais transmis un geste de métier.", "w": "Il est volontaire mais n’a jamais transmis : donnez-lui un plan de progression en étapes, montrez-lui comment démontrer un geste et suivez ses premiers jours."}, {"n": 64, "t": "BUDGET", "p": "Léna", "s": "34 ans · responsable événementiel", "r": "D", "sf": 2, "en": 1, "x": "Léna a dépassé de 20 % le budget d’un salon. Depuis, elle n’ose plus engager la moindre dépense et reporte toutes ses décisions.", "w": "Elle ne sait plus dimensionner une dépense et craint de se tromper : montrez une méthode de suivi de budget, écoutez-la et félicitez chaque décision bien cadrée."}, {"n": 65, "t": "INSTALLATIONS", "p": "Gérard", "s": "56 ans · électricien", "r": "E", "sf": 5, "en": 1, "x": "Gérard est le plus fiable de l’équipe sur les installations. Depuis qu’on lui a retiré un chantier qu’il suivait, il fait le strict minimum et ne partage plus ses astuces.", "w": "Sa compétence est certaine, il s’est retiré : demandez-lui ce que ce retrait a signifié pour lui et cherchez ensemble comment il peut retrouver un rôle."}, {"n": 66, "t": "PARTENARIAT", "p": "Aurélie", "s": "36 ans · responsable partenariats", "r": "A", "sf": 5, "en": 5, "x": "Aurélie a noué quatre partenariats rentables. Elle demande l’autorisation de négocier seule le prochain contrat, dans le cadre de la politique d’achat.", "w": "Elle a fait ses preuves : rappelez le cadre (politique d’achat, plafond) et laissez-la négocier."}, {"n": 67, "t": "COMITÉ", "p": "Camille", "s": "25 ans · analyste financière", "r": "N", "sf": 2, "en": 5, "x": "Camille a hâte de présenter sa première analyse au comité. Elle a les chiffres, mais n’a jamais construit une synthèse d’une page pour des décideurs.", "w": "Elle a le fond mais pas la forme : donnez un modèle de synthèse, faites-lui répéter l’oral et corrigez avant le comité."}, {"n": 68, "t": "ÉQUIPE DE NUIT", "p": "Samuel", "s": "38 ans · opérateur de production", "r": "D", "sf": 2, "en": 2, "x": "Samuel est passé en équipe de nuit après une restructuration. Il fait des erreurs de réglage qu’il ne faisait jamais avant et dit que « plus rien ne marche comme avant ».", "w": "Il a perdu ses repères et son entrain : reprenez les réglages avec lui sur la nouvelle machine, écoutez ce qui a changé et encouragez les réglages réussis."}, {"n": 69, "t": "AVIS JURIDIQUE", "p": "Muriel", "s": "46 ans · juriste d’entreprise", "r": "E", "sf": 5, "en": 2, "x": "Muriel rédige des avis juridiques très solides. Depuis que ses recommandations ne sont plus suivies, elle répond par un mail laconique et ne vient plus aux comités.", "w": "Sa compétence est solide, son influence lui échappe : demandez-lui ce qui rendrait ses avis plus utiles et décidez avec elle de la façon de les intégrer."}, {"n": 70, "t": "OUVERTURE D’AGENCE", "p": "Walid", "s": "39 ans · directeur de site adjoint", "r": "A", "sf": 5, "en": 5, "x": "Walid a ouvert deux agences sans dépassement de budget. Il vous propose de piloter la troisième, avec une équipe qu’il choisira.", "w": "Il a déjà réussi deux fois : fixez le budget et la date d’ouverture, puis laissez-le monter son équipe."}, {"n": 71, "t": "RELANCE", "p": "Nina", "s": "28 ans · assistante commerciale", "r": "D", "sf": 2, "en": 1, "x": "Nina n’a pas relancé les devis depuis un mois. Elle a perdu trois clients après une erreur de tarif et dit qu’elle ne veut plus « prendre de risque ».", "w": "Elle ne maîtrise pas la grille tarifaire et se protège : montrez comment vérifier un devis, écoutez sa crainte et félicitez les devis relancés."}, {"n": 72, "t": "PILOTAGE", "p": "Ravi", "s": "40 ans · responsable data", "r": "E", "sf": 5, "en": 2, "x": "Ravi connaît les données de l’entreprise mieux que personne. Depuis qu’on lui impose un nouvel outil de pilotage qu’il juge inutile, il fait le minimum et ne partage plus ses analyses.", "w": "Sa maîtrise ne fait aucun doute, son adhésion si : demandez-lui ce qu’il reproche à l’outil et décidez avec lui de son rôle dans le pilotage."}];
+const SIDX = {}; SIT.forEach((s,i)=>{SIDX[s.n]=i;});
+const PROF = {
+  N:{nom:'Le Novice motivé', ideal:'DIRIGER', ok:'ENTRAÎNER'},
+  D:{nom:'Le Découragé', ideal:'ENTRAÎNER', ok:'DIRIGER'},
+  E:{nom:'L’Expert en retrait', ideal:'ASSOCIER', ok:null},
+  A:{nom:'L’Autonome', ideal:'CONFIER', ok:'ASSOCIER'}
+};
+const STY = {
+  DIRIGER:{c:'#E4572E', on:'#fff', ph:'Je dis quoi faire, et comment.', ic:'<circle cx="12" cy="12" r="9"/><path d="M15.6 8.4l-2.1 5.1-5.1 2.1 2.1-5.1z"/>'},
+  'ENTRAÎNER':{c:'#E9A400', on:'#1A2346', ph:'J’explique, j’encourage.', ic:'<path d="M3 10v4h3l7 4V6L6 10z"/><path d="M16 9a4 4 0 010 6M18.6 6.4a8 8 0 010 11.2"/>'},
+  ASSOCIER:{c:'#2E9E6B', on:'#fff', ph:'J’écoute, on décide ensemble.', ic:'<path d="M3 5h11v7H8l-3 3v-3H3z"/><path d="M10 15h5l3 3v-3h3V9h-4"/>'},
+  CONFIER:{c:'#3B6FD8', on:'#fff', ph:'Je donne le cap, je laisse faire.', ic:'<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16 7l3 3M14 9l2 2"/>'}
+};
+const PSHORT = {N:'Novice',D:'Découragé',E:'Expert',A:'Autonome'};
+const SKEYS = ['DIRIGER','ENTRAÎNER','ASSOCIER','CONFIER'];
+const PKEYS = ['N','D','E','A'];
+const sty = k => STY[k];
+const svg = k => '<svg viewBox="0 0 24 24" aria-hidden="true">'+STY[k].ic+'</svg>';
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $ = s => document.querySelector(s);
+const rid = n => Array.from({length:n},()=>'abcdefghjkmnpqrstuvwxyz23456789'[Math.floor(Math.random()*31)]).join('');
+function ls(k,v){try{ if(v===undefined){const x=localStorage.getItem(k);return x?JSON.parse(x):null} if(v===null)localStorage.removeItem(k); else localStorage.setItem(k,JSON.stringify(v)); }catch(e){} return null}
+
+/* ===================================================== Connexion (PeerJS : l'animateur est le point central) */
+const qs = new URLSearchParams(location.search);
+let PO;   // serveur de signalisation local, accepté seulement pour les tests
+(function(){ const h=qs.get('peerhost'); if(h && /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(h)){ const a=h.split(':'); PO={host:a[0],port:+(a[1]||9000),path:'/',secure:false}; } })();
+const hasPeer = typeof Peer !== 'undefined';
+let ROLE=null;       // 'host' | 'player' | 'local'
+let VIEW='role';
+function stopTimers(){}
+function Host(code,onMsg,onClose){
+  const conns={}, peer=new Peer('CM-'+code,PO);
+  const ready=new Promise((ok,ko)=>{ peer.on('open',ok); peer.on('error',ko); });
+  peer.on('connection',c=>{ c.on('open',()=>{ conns[c.peer]=c; }); c.on('data',d=>onMsg(c.peer,d)); c.on('close',()=>{ delete conns[c.peer]; onClose(c.peer); }); });
+  return {ready, send:(to,m)=>{ const c=conns[to]; if(c&&c.open) c.send(m); }, broadcast:m=>Object.values(conns).forEach(c=>{ if(c.open) c.send(m); }), destroy:()=>{ try{peer.destroy()}catch(e){} }};
+}
+function Client(code,onMsg,onLost){
+  const peer=new Peer(undefined,PO); let c=null;
+  const ready=new Promise((ok,ko)=>{
+    peer.on('open',()=>{ c=peer.connect('CM-'+code,{reliable:true}); c.on('open',ok); c.on('data',onMsg); c.on('close',onLost); c.on('error',ko); });
+    peer.on('error',ko); setTimeout(()=>ko({type:'timeout'}),12000);
+  });
+  return {ready, send:m=>{ if(c&&c.open) c.send(m); }, destroy:()=>{ try{peer.destroy()}catch(e){} }};
+}
+function joinURL(code){ return location.origin+location.pathname+'?room='+code; }
+function qrSVG(text){
+  try{ const q=qrcode(0,'M'); q.addData(text); q.make(); return q.createSvgTag({cellSize:1,margin:0,scalable:true}); }catch(e){ return ''; }
+}
+
+/* ===================================================== Calculs communs */
+const ideal = s => PROF[s.r].ideal, okSt = s => PROF[s.r].ok;
+function stepsFor(s, style, isActive, teamsOn, prof){
+  if(!style) return 0;
+  let n = style===ideal(s) ? (isActive?3:1) : (isActive && style===okSt(s) ? 1 : 0);
+  if(teamsOn && prof===s.r) n+=1;
+  return n;
+}
+function verdict(s, style){ return !style ? 'none' : style===ideal(s) ? 'ideal' : style===okSt(s) ? 'ok' : 'miss'; }
+const VL = {ideal:'Style idéal', ok:'Style acceptable', miss:'Style raté', none:'Pas de réponse'};
+function chipFor(style){ return style ? '<span class="chip" style="background:'+sty(style).c+';color:'+sty(style).on+'">'+esc(style)+'</span>' : '<span class="chip" style="background:var(--line)">—</span>'; }
+function gauge(v,col){ return '<div class="gauge" aria-label="'+v+' sur 5">'+[0,1,2,3,4].map(i=>'<i style="'+(i<v?'background:'+col:'')+'"></i>').join('')+'</div>'; }
+function brand(extra){ return '<div class="brand"><b>CAP MANAGER</b><div class="row" style="gap:12px">'+(extra||'')+'<div class="dots"><i style="background:var(--dir)"></i><i style="background:var(--ent)"></i><i style="background:var(--ass)"></i><i style="background:var(--con)"></i></div></div></div>'; }
+function sitCard(s, showAnswerHint){
+  return '<div class="card" style="display:flex;flex-direction:column;gap:14px"><div class="row" style="justify-content:space-between"><span class="pill">'+esc(s.t)+'</span><span class="muted tiny" style="font-weight:800">Situation n° '+String(s.n).padStart(2,'0')+'</span></div>'+
+    '<div class="who"><div class="av">'+esc(s.p[0])+'</div><div style="min-width:0"><h2>'+esc(s.p)+'</h2><div class="muted small">'+esc(s.s)+'</div></div></div>'+
+    '<p class="sit">'+esc(s.x)+'</p></div>';
+}
+function correction(s, teamsOn){
+  const id=ideal(s), ok=okSt(s), c=sty(id);
+  return '<div class="card" style="display:flex;flex-direction:column;gap:14px">'+
+    '<div><div class="muted tiny" style="font-weight:800;letter-spacing:.14em;color:var(--ocre)">PROFIL DE '+esc(s.p.toUpperCase())+'</div><h2 style="font-size:30px">'+esc(PROF[s.r].nom)+'</h2></div>'+
+    '<div style="display:flex;flex-direction:column;gap:8px"><div class="gl"><span>Savoir-faire</span>'+gauge(s.sf,c.c)+'</div><div class="gl"><span>Envie</span>'+gauge(s.en,c.c)+'</div></div>'+
+    '<div class="ideal" style="background:'+c.c+';color:'+c.on+'">'+svg(id)+'<div><small>STYLE IDÉAL · +3 PAS</small><b>'+esc(id)+'</b></div></div>'+
+    '<p><b>Pourquoi ?</b> '+esc(s.w)+'</p>'+
+    (ok ? '<div class="row"><span class="chip" style="background:'+sty(ok).c+';color:'+sty(ok).on+'">+1 pas</span><span>'+esc(ok.charAt(0)+ok.slice(1).toLowerCase())+' reste acceptable</span></div>' : '<p class="muted">Aucun autre style acceptable.</p>')+
+    '<p class="muted tiny">Bonne réponse des autres joueurs : +1 pas · Mauvais style : on reste sur place'+(teamsOn?' · Profil bien annoncé : +1 pas':'')+'</p></div>';
+}
+function statsOf(hist, pid){
+  let id=0, ok=0, tot=0, steps=0;
+  hist.forEach(h=>{ const row=h.rows.find(r=>r[0]===pid); if(!row) return; tot++; const v=verdict(SIT[SIDX[h.n]],row[1]); if(v==='ideal')id++; else if(v==='ok')ok++; steps+=row[3]; });
+  return {id,ok,tot,steps};
+}
+function matrixHTML(cells, title){
+  const mx = Math.max(1,...cells.flat());
+  let h='<div class="tw"><table class="mx"><thead><tr><th>'+esc(title||'Profil')+'</th>'+SKEYS.map(k=>'<th style="color:'+(k==='ENTRAÎNER'?'var(--ocre)':sty(k).c)+'">'+esc(k.charAt(0)+k.slice(1).toLowerCase())+'</th>').join('')+'</tr></thead><tbody>';
+  PKEYS.forEach((p,i)=>{
+    h+='<tr><td class="hd">'+esc(PSHORT[p])+'</td>';
+    SKEYS.forEach((k,j)=>{ const v=cells[i][j]; const good = PROF[p].ideal===k;
+      h+='<td class="'+(good?'diag':'')+'" style="background:'+(v?'color-mix(in srgb,'+sty(k).c+' '+Math.round(18+55*v/mx)+'%, transparent)':'transparent')+';font-weight:800">'+(v||'')+'</td>'; });
+    h+='</tr>';
+  });
+  return h+'</tbody></table></div>';
+}
+function matrixOf(hist, pid){
+  const m=PKEYS.map(()=>SKEYS.map(()=>0));
+  hist.forEach(h=>{ const s=SIT[SIDX[h.n]]; h.rows.forEach(r=>{ if(pid && r[0]!==pid) return; if(!r[1]) return; m[PKEYS.indexOf(s.r)][SKEYS.indexOf(r[1])]++; }); });
+  return m;
+}
+function pct(a,b){ return b ? Math.round(100*a/b)+' %' : '—'; }
+
+/* ===================================================== Écran : accueil */
+function viewRole(){
+  VIEW='role'; stopTimers();
+  $('#app').innerHTML = '<div class="wrap">'+brand()+
+   '<div class="card" style="display:flex;flex-direction:column;gap:6px"><h1 style="font-size:34px">Le bon style, au bon moment, pour la bonne personne</h1>'+
+   '<p class="muted">Jeu de plateau de management situationnel. Le plateau et le dé restent sur la table ; les situations, les choix et les corrigés passent par les téléphones. Aucun compte à créer.</p></div>'+
+   '<button class="btn block" id="bHost">Animateur : créer une partie</button>'+
+   '<button class="btn block ghost" id="bPlayer">Joueur : rejoindre une partie</button>'+
+   '<button class="btn block ghost" id="bLocal">Un seul écran : le téléphone passe de main en main</button>'+
+   (hasPeer?'':'<p class="err">La bibliothèque de connexion n’a pas pu se charger : seul le mode « un seul écran » est disponible.</p>')+
+   '</div>';
+  if(!hasPeer){ $('#bHost').disabled=true; $('#bPlayer').disabled=true; }
+  $('#bHost').onclick=()=>startHost(false);
+  $('#bPlayer').onclick=()=>viewJoin();
+  $('#bLocal').onclick=()=>startHost(true);
+}
+
+/* ===================================================== Joueur */
+const P = {pid:null,name:'',code:'',e:null,q:0,st:null,hist:[],sel:null,prof:null,seenR:null,cli:null,lost:false};
+let retryT=null;
+function viewJoin(prefill){
+  VIEW='join';
+  const sv=ls('cm-player')||{};
+  const code0=(prefill||qs.get('room')||sv.code||'').toUpperCase().slice(0,4);
+  $('#app').innerHTML='<div class="wrap">'+brand('<button class="btn ghost sm" id="back">Retour</button>')+
+   '<div class="card" style="display:flex;flex-direction:column;gap:14px"><h2>Rejoindre une partie</h2>'+
+   '<label class="f">Code affiché chez l’animateur<input type="text" id="code" maxlength="4" autocapitalize="characters" autocomplete="off" value="'+esc(code0)+'" style="text-transform:uppercase;letter-spacing:.3em;text-align:center"></label>'+
+   '<label class="f">Ton prénom<input type="text" id="nm" maxlength="18" autocomplete="given-name" value="'+esc(sv.name||'')+'"></label>'+
+   '<p class="err" id="je" hidden></p><button class="btn block" id="go">Rejoindre</button></div></div>';
+  $('#back').onclick=viewRole;
+  $('#go').onclick=()=>{
+    const code=$('#code').value.trim().toLowerCase(), name=$('#nm').value.trim();
+    if(code.length!==4||!name){ const e=$('#je'); e.hidden=false; e.textContent='Entre le code à 4 caractères et ton prénom.'; return; }
+    $('#go').disabled=true; $('#go').textContent='Connexion…';
+    P.name=name; P.code=code;
+    try{ P.pid=sessionStorage.getItem('cm-pid')||rid(6); sessionStorage.setItem('cm-pid',P.pid); }catch(e){ P.pid=P.pid||rid(6); }
+    ls('cm-player',{code,name});
+    P.e=null; P.q=0; P.st=null; P.hist=[]; P.sel=null; P.prof=null; P.seenR=null;
+    connectPlayer(true);
+  };
+}
+function connectPlayer(first){
+  P.lost=false;
+  if(P.cli){ P.cli.destroy(); }
+  const cli=Client(P.code,m=>{ if(m && m.t==='state') onState(m); },()=>{ if(P.cli!==cli||ROLE!=='player') return; P.lost=true; renderPlayer(); scheduleRetry(); });
+  P.cli=cli;
+  cli.ready.then(()=>{
+    ROLE='player'; cli.send({t:'hello',pid:P.pid,name:P.name}); if(P.sel) sendVote(); renderPlayer();
+  },e=>{
+    if(first){
+      const el=$('#je'); if(!el) return;
+      el.hidden=false; el.textContent=(e&&e.type==='peer-unavailable')?'Code inconnu. Vérifie le code affiché chez l’animateur.':'Connexion impossible. Vérifie le réseau (le partage de connexion de l’animateur peut aider) ou demande le mode « un seul écran ».';
+      const g=$('#go'); if(g){ g.disabled=false; g.textContent='Rejoindre'; }
+    } else scheduleRetry();
+  });
+}
+function scheduleRetry(){ clearTimeout(retryT); retryT=setTimeout(()=>{ if(ROLE==='player'&&P.lost) connectPlayer(false); },3000); }
+function leavePlayer(){ clearTimeout(retryT); if(P.cli) P.cli.destroy(); P.cli=null; ROLE=null; P.st=null; viewRole(); }
+function onState(s){
+  if(!s || typeof s!=='object') return;
+  if(s.e!==P.e){ P.e=s.e; P.q=0; P.hist=[]; P.sel=null; P.prof=null; P.seenR=null; }
+  if(s.q<=P.q) return; P.q=s.q;
+  const prevR = P.st ? P.st.r : null, prevPh = P.st ? P.st.ph : null;
+  P.st=s;
+  if(s.ph==='vote' && (s.r!==prevR || prevPh!=='vote')){ P.sel=null; P.prof=null; }
+  if(s.ph==='reveal' && P.seenR!==s.r){ P.seenR=s.r; P.hist.push({n:s.sid,r:s.r,rows:s.rv||[]}); }
+  renderPlayer();
+}
+function myRow(){ const rv=(P.st&&P.st.rv)||[]; return rv.find(r=>r[0]===P.pid); }
+function nameOf(st,id){ const x=(st.ro||[]).find(r=>r[0]===id); return x?x[1]:'?'; }
+function setChoice(k){ P.sel=k; sendVote(); renderPlayer(); }
+function setProf(k){ P.prof=k; sendVote(); renderPlayer(); }
+function sendVote(){ if(P.cli && P.st) P.cli.send({t:'vote',pid:P.pid,s:P.sel,pf:P.prof,rnd:P.st.e+'.'+P.st.r}); }
+
+function renderPlayer(){
+  VIEW='player';
+  const st=P.st, head=brand('<span class="tiny muted" style="font-weight:800">'+esc(P.name)+'</span>');
+  let body='';
+  if(!st || st.ph==='lobby'){
+    body='<div class="card"><h2>Tu es dans la partie</h2><p class="muted" style="margin-top:6px">En attente du début. Garde cet écran ouvert.</p>'+(st?rosterHTML(st):'')+'</div>';
+  } else if(st.ph==='turn'){
+    const mine = st.act===P.pid;
+    body='<div class="card" style="text-align:center;display:flex;flex-direction:column;gap:10px"><div class="muted small" style="font-weight:800">TOUR DE JEU</div><h2 style="font-size:34px">'+(mine?'C’est ton tour':esc(nameOf(st,st.act)))+'</h2>'+
+     '<p class="muted">'+(mine?'Lance le dé et avance ton pion. Si tu tombes sur une case « ? », l’animateur tire la situation.':'Il ou elle lance le dé. Si la case est un « ? », une situation arrive ici.')+'</p></div>'+rosterCard(st);
+  } else if(st.ph==='vote'){
+    const s=SIT[SIDX[st.sid]], mine=st.act===P.pid;
+    body=sitCard(s)+
+     '<div class="card" style="display:flex;flex-direction:column;gap:12px"><h2 style="font-size:22px">Quel style choisis-tu ?</h2>'+
+     '<p class="hint">'+(mine?'Tu es le joueur actif : un bon choix te fait avancer de 3 pas.':'Un choix idéal te fait avancer de 1 pas. Le joueur actif est '+esc(nameOf(st,st.act))+'.')+'</p>'+
+     '<div class="styles" role="group" aria-label="Styles de management">'+SKEYS.map(k=>'<button class="sb'+(P.sel===k?' sel':'')+(P.sel&&P.sel!==k?' dim':'')+'" data-k="'+esc(k)+'" aria-pressed="'+(P.sel===k)+'" style="background:'+sty(k).c+';color:'+sty(k).on+'">'+svg(k)+'<b>'+esc(k)+'</b><span>'+esc(sty(k).ph)+'</span></button>').join('')+'</div>'+
+     (st.tm?'<div><div class="small" style="font-weight:800;margin-bottom:6px">Quel est son profil ? (+1 pas si tu as raison)</div><div class="profs">'+PKEYS.map(k=>'<button class="pf'+(P.prof===k?' sel':'')+'" data-p="'+k+'">'+esc(PROF[k].nom)+'</button>').join('')+'</div></div>':'')+
+     '<p class="small" style="font-weight:700;color:'+(P.sel?'var(--ok)':'var(--muted)')+'">'+(P.sel?'Choix envoyé. Tu peux le changer jusqu’à la révélation.':'Choisis un style, sans en parler.')+'</p></div>';
+  } else if(st.ph==='reveal'){
+    const s=SIT[SIDX[st.sid]], row=myRow(), v=verdict(s,row?row[1]:null);
+    const mineAct=st.act===P.pid;
+    body='<div class="card" style="text-align:center;display:flex;flex-direction:column;gap:6px"><div class="muted small" style="font-weight:800">TON RÉSULTAT</div>'+
+      '<div class="big" style="color:'+(row&&row[3]>0?'var(--ok)':'var(--muted)')+'">'+(row&&row[3]>0?'+'+row[3]:'0')+'</div>'+
+      '<div style="font-weight:800;font-size:18px">'+(row&&row[3]>0?'Avance ton pion de '+row[3]+' pas':'Reste sur ta case')+'</div>'+
+      '<div class="muted small">'+(row&&row[1]?'Tu as joué '+esc(row[1])+' · '+VL[v]+(mineAct?' · joueur actif':''):'Pas de réponse envoyée')+'</div></div>'+
+      correction(s,st.tm)+resultsCard(st,P.pid)+'<p class="hint" style="text-align:center">En attente de l’animateur pour la suite.</p>';
+  } else if(st.ph==='end'){
+    const me=(st.sm||[]).find(r=>r[0]===P.pid);
+    const have = me && P.hist.length===me[4];
+    body='<div class="card" style="display:flex;flex-direction:column;gap:10px"><h2>Fin de partie</h2>'+
+      (me?'<div class="soft"><div class="row" style="justify-content:space-between"><span>Situations jouées</span><b>'+me[4]+'</b></div><div class="row" style="justify-content:space-between"><span>Style idéal</span><b>'+me[2]+' · '+pct(me[2],me[4])+'</b></div><div class="row" style="justify-content:space-between"><span>Idéal ou acceptable</span><b>'+pct(me[2]+me[3],me[4])+'</b></div><div class="row" style="justify-content:space-between"><span>Pas gagnés</span><b>'+me[5]+'</b></div></div>':'<p class="muted">Pas de statistiques pour toi sur cette partie.</p>')+'</div>'+
+      (have?'<div class="card" style="display:flex;flex-direction:column;gap:8px"><h3 style="font-size:20px">Ma matrice de choix</h3><p class="hint">Lignes : profil réel. Colonnes : style que tu as joué. Les cases cerclées sont les bonnes réponses.</p>'+matrixHTML(matrixOf(P.hist,P.pid))+'</div>':'')+
+      '<div class="card note"><b>À toi de jouer demain.</b> Dans quelle situation réelle as-tu déjà fait l’erreur que ta matrice montre ? Quel geste vas-tu essayer cette semaine ?</div>';
+  }
+  const lostB = P.lost ? '<div class="card err" role="status">Connexion perdue. Reconnexion en cours…</div>' : '';
+  $('#app').innerHTML='<div class="wrap">'+head+lostB+body+'<button class="btn ghost sm" id="leave" style="align-self:flex-start">Quitter la partie</button></div>';
+  document.querySelectorAll('.sb').forEach(b=>b.onclick=()=>setChoice(b.dataset.k));
+  document.querySelectorAll('.pf').forEach(b=>b.onclick=()=>setProf(b.dataset.p));
+  $('#leave').onclick=leavePlayer;
+}
+function rosterHTML(st){ return '<div class="pl" style="margin-top:12px">'+(st.ro||[]).map(r=>'<div class="pr"><span class="nm">'+esc(r[1])+'</span>'+(r[0]===P.pid?'<span class="me-t">toi</span>':'')+'</div>').join('')+'</div>'; }
+function rosterCard(st){ return '<div class="card"><div class="small muted" style="font-weight:800;margin-bottom:6px">JOUEURS</div>'+rosterHTML(st).replace('margin-top:12px','margin-top:0')+'</div>'; }
+function resultsCard(st,meId){
+  const s=SIT[SIDX[st.sid]];
+  return '<div class="card" style="display:flex;flex-direction:column;gap:10px"><h3 style="font-size:20px">Les choix de chacun</h3><div class="res">'+
+    (st.rv||[]).map(r=>'<div class="rr'+(r[0]===meId?' me':'')+'"><span style="min-width:0;overflow-wrap:anywhere;font-weight:800">'+esc(nameOf(st,r[0]))+(r[0]===st.act?' <span class="tag">actif</span>':'')+(st.tm&&r[2]?' <span class="tiny muted">profil : '+esc(PROF[r[2]].nom)+'</span>':'')+'</span>'+chipFor(r[1])+'<span class="steps" style="color:'+(r[3]>0?'var(--ok)':'var(--muted)')+'">'+(r[3]>0?'+'+r[3]:'0')+'</span></div>').join('')+'</div></div>';
+}
+
+/* ===================================================== Animateur (et mode un seul écran) */
+let G=null, H=null, REM={}, PEERPID={};
+const LOCAL_ONLY = ()=>ROLE==='local';
+
+function newGame(code){
+  return {e:rid(6),q:0,code,ph:'lobby',teams:false,locals:[],order:[],names:{},act:null,sid:null,r:0,deck:[],hist:[],votes:{},rv:null};
+}
+function openHost(code){
+  return new Promise((ok,ko)=>{ let n=0;
+    const go=()=>{ const h=Host(code,onClientMsg,onClientClose);
+      h.ready.then(()=>ok(h),e=>{ h.destroy(); if(e&&e.type==='unavailable-id'&&n++<6) setTimeout(go,2500); else ko(e); }); };
+    go(); });
+}
+async function startHost(local){
+  ROLE = local?'local':'host';
+  const saved = ls('cm-host');
+  if(saved && saved.ph!=='end' && !!saved.local===!!local){
+    VIEW='resume';
+    $('#app').innerHTML='<div class="wrap">'+brand()+'<div class="card" style="display:flex;flex-direction:column;gap:12px"><h2>Une partie est en cours</h2><p class="muted">Code '+esc(saved.code.toUpperCase())+' · '+saved.hist.length+' situation(s) jouée(s).</p>'+
+      '<button class="btn block" id="rs">Reprendre la partie</button><button class="btn block ghost" id="nw">Nouvelle partie</button></div></div>';
+    $('#rs').onclick=()=>begin(saved); $('#nw').onclick=()=>{ ls('cm-host',null); begin(null); };
+    return;
+  }
+  begin(null);
+  async function begin(sv){
+    G = sv || newGame(rid(4));
+    G.local=!!local; REM={}; PEERPID={};
+    if(!local){
+      $('#app').innerHTML='<div class="wrap">'+brand()+'<div class="card"><h2>Connexion…</h2></div></div>';
+      try{ H=await openHost(G.code); }
+      catch(e){
+        $('#app').innerHTML='<div class="wrap">'+brand()+'<div class="card" style="display:flex;flex-direction:column;gap:12px"><h2>Connexion impossible</h2><p class="err">Le service de mise en relation des téléphones ne répond pas ('+esc((e&&e.type)||'erreur')+'). Essayez le partage de connexion d’un téléphone, ou jouez sur un seul écran.</p>'+
+          '<button class="btn block" id="rt">Réessayer</button><button class="btn block ghost" id="lc">Un seul écran</button></div></div>';
+        $('#rt').onclick=()=>startHost(false); $('#lc').onclick=()=>{ ROLE='local'; startHost(true); };
+        return;
+      }
+    }
+    persist(); hostRender(); emitState();
+  }
+}
+function persist(){ if(G) ls('cm-host',G); }
+function onClientMsg(peerId,m){
+  if(!G||!m||typeof m!=='object') return;
+  if(m.t==='hello'){
+    const pid=String(m.pid||'').slice(0,12), name=String(m.name||'').trim().slice(0,18);
+    if(!pid||!name) return;
+    PEERPID[peerId]=pid;
+    REM[pid]={name,here:true,peer:peerId,vote:(REM[pid]&&REM[pid].vote)||null};
+    if(G.order.indexOf(pid)<0) G.order.push(pid);
+    G.names[pid]=name;
+    emitState(); refreshHost();
+  } else if(m.t==='vote'){
+    const pid=PEERPID[peerId]; if(!pid||!REM[pid]) return;
+    const s=SKEYS.indexOf(m.s)>=0?m.s:null, pf=PKEYS.indexOf(m.pf)>=0?m.pf:null;
+    REM[pid].vote = s ? {s,pf,rnd:String(m.rnd||'')} : null;
+    if(G.ph==='vote') updateVotes();
+  }
+}
+function onClientClose(peerId){
+  const pid=PEERPID[peerId]; delete PEERPID[peerId];
+  if(pid && REM[pid] && REM[pid].peer===peerId){ REM[pid].here=false; if(G){ emitState(); refreshHost(); } }
+}
+function refreshHost(){ if(!G) return; if(G.ph==='lobby') updatePlayers(); else if(G.ph==='vote') updateVotes(); }
+function roster(){
+  const all=[];
+  G.locals.forEach(l=>{ if(G.order.indexOf(l.id)<0) G.order.push(l.id); G.names[l.id]=l.name; });
+  G.order.forEach(id=>{
+    const r=REM[id], l=G.locals.find(x=>x.id===id);
+    if(r&&r.here) all.push({id,name:r.name,local:false,sel:r.vote?r.vote.s:null,pf:r.vote?r.vote.pf:null,rnd:r.vote?r.vote.rnd:null});
+    else if(l) all.push({id,name:l.name,local:true});
+  });
+  const used={}; all.forEach(p=>{ used[p.name]=(used[p.name]||0)+1; if(used[p.name]>1) p.name=p.name+' ('+used[p.name]+')'; });
+  return all;
+}
+function roundKey(){ return G.e+'.'+G.r; }
+function currentVotes(){
+  const v={}; roster().forEach(p=>{
+    if(p.local){ const x=G.votes[p.id]; if(x&&x.rnd===roundKey()) v[p.id]={s:x.s,p:x.p}; }
+    else if(p.rnd===roundKey() && p.sel) v[p.id]={s:p.sel,p:p.pf};
+  }); return v;
+}
+function stateObj(){
+  const ro=roster();
+  const pay={t:'state',e:G.e,q:Date.now(),ph:G.ph,tm:G.teams?1:0,sid:G.sid,r:G.r,act:G.act,ro:ro.map(p=>[p.id,p.name])};
+  if(G.ph==='reveal'&&G.rv) pay.rv=G.rv;
+  if(G.ph==='end') pay.sm=G.sm;
+  return pay;
+}
+function emitState(){ if(!H||!G) return; H.broadcast(stateObj()); }
+function stopHost(){ if(H) H.destroy(); H=null; G=null; REM={}; PEERPID={}; ROLE=null; }
+function nextActive(){
+  const ro=roster(); if(!ro.length) return null;
+  const i=ro.findIndex(p=>p.id===G.act);
+  return ro[(i+1)%ro.length].id;
+}
+function hostRender(){
+  const f={lobby:hostLobby,turn:hostTurn,vote:hostVote,reveal:hostReveal,end:hostEnd}[G.ph];
+  VIEW='host-'+G.ph; f();
+}
+function setPhase(ph){ G.ph=ph; persist(); hostRender(); emitState(); window.scrollTo(0,0); }
+
+function hostBar(){
+  return brand('<button class="btn ghost sm" id="hq">Terminer</button>');
+}
+function bindBar(){
+  const b=$('#hq'); if(!b) return;
+  b.onclick=()=>{
+    if(b.dataset.armed){ endGame(); return; }
+    b.dataset.armed='1'; b.textContent='Confirmer la fin'; b.style.borderColor='var(--warn)'; setTimeout(()=>{ if(b.isConnected){ b.dataset.armed=''; b.textContent='Terminer'; b.style.borderColor=''; } },3500);
+  };
+}
+function playersHTML(opts){
+  const ro=roster();
+  if(!ro.length) return '<p class="muted small">Personne pour l’instant. Les joueurs saisissent le code sur leur téléphone, ou ajoutez des joueurs sur cet écran.</p>';
+  return ro.map(p=>'<div class="pr"><span class="nm">'+esc(p.name)+'</span>'+(p.local?'<span class="tag">cet écran</span>':'<span class="tag on">téléphone</span>')+
+    (opts&&opts.remove&&p.local?'<button class="btn ghost sm" data-rm="'+esc(p.id)+'" aria-label="Retirer '+esc(p.name)+'">Retirer</button>':'')+'</div>').join('');
+}
+function updatePlayers(){
+  const el=$('#plist'); if(!el) return; el.innerHTML=playersHTML({remove:true});
+  el.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{ G.locals=G.locals.filter(l=>l.id!==b.dataset.rm); G.order=G.order.filter(i=>i!==b.dataset.rm); persist(); updatePlayers(); emitState(); });
+  const st=$('#start'); if(st) st.disabled = roster().length<1;
+  const c=$('#cnt'); if(c) c.textContent=roster().length;
+}
+function hostLobby(){
+  const local=LOCAL_ONLY();
+  $('#app').innerHTML='<div class="wrap wide">'+hostBar()+
+   '<div class="two"><div class="card" style="display:flex;flex-direction:column;gap:14px">'+
+   (local?'<h2>Partie sur un seul écran</h2><p class="muted">Ajoutez les joueurs. Quand une situation arrive, on passe le téléphone : chacun choisit son style en secret.</p>':
+   '<div class="row" style="align-items:flex-start;gap:18px"><div><div class="muted small" style="font-weight:800">CODE DE LA PARTIE</div><div class="code">'+esc(G.code.toUpperCase())+'</div></div>'+
+   '<div id="qr" style="background:#fff;padding:8px;border-radius:10px;width:150px;height:150px;flex:none" aria-label="QR code de connexion">'+qrSVG(joinURL(G.code))+'</div></div>'+
+   '<p class="muted">Les joueurs scannent le QR code (ou ouvrent <b>'+esc(location.host+location.pathname)+'</b>, choisissent « Joueur ») et saisissent ce code et leur prénom.</p>')+
+   '<label class="toggle"><input type="checkbox" id="tm" '+(G.teams?'checked':'')+'> Mode équipes : chaque équipe annonce aussi le profil (+1 pas)</label>'+
+   '<div class="soft small"><b>Rappel des règles.</b> Le joueur actif lance le dé. Case « ? » : situation, tous choisissent, puis corrigé : actif +3 pas (idéal) ou +1 (acceptable), autres joueurs +1 pas s’ils ont le style idéal. Imprévu : pair +2 cases, impair −1. Pause café : on rejoue.</div>'+
+   '</div><div class="card" style="display:flex;flex-direction:column;gap:12px"><div class="row" style="justify-content:space-between"><h3 style="font-size:22px">Joueurs (<span id="cnt">0</span>)</h3></div><div class="pl" id="plist"></div>'+
+   '<div class="row" style="flex-wrap:nowrap"><input type="text" id="ln" maxlength="18" placeholder="Ajouter un joueur sur cet écran" aria-label="Prénom du joueur à ajouter"><button class="btn sm" id="la" style="flex:none">Ajouter</button></div>'+
+   '<button class="btn block" id="start" disabled>Commencer la partie</button></div></div></div>';
+  bindBar(); updatePlayers();
+  $('#tm').onchange=e=>{ G.teams=e.target.checked; persist(); emitState(); };
+  const add=()=>{ const v=$('#ln').value.trim(); if(!v) return; G.locals.push({id:'L'+rid(4),name:v.slice(0,18)}); $('#ln').value=''; persist(); updatePlayers(); emitState(); $('#ln').focus(); };
+  $('#la').onclick=add; $('#ln').onkeydown=e=>{ if(e.key==='Enter') add(); };
+  $('#start').onclick=()=>{ const ro=roster(); G.act=ro[0].id; setPhase('turn'); };
+}
+function hostTurn(){
+  const ro=roster(), actName=(ro.find(p=>p.id===G.act)||{}).name||'?';
+  $('#app').innerHTML='<div class="wrap">'+hostBar()+
+   '<div class="card" style="text-align:center;display:flex;flex-direction:column;gap:12px"><div class="muted small" style="font-weight:800">TOUR DE JEU · '+G.hist.length+' situation'+(G.hist.length>1?'s':'')+' jouée'+(G.hist.length>1?'s':'')+'</div>'+
+   '<h2 style="font-size:40px">'+esc(actName)+'</h2><p class="muted">lance le dé et avance son pion.</p>'+
+   '<button class="btn block" id="draw">Case « ? » : tirer une situation</button>'+
+   '<p class="hint">Case Imprévu ou Pause café : appliquez la règle du plateau, puis passez au joueur suivant.</p>'+
+   '<button class="btn ghost block" id="skip">Passer au joueur suivant</button></div>'+
+   '<div class="card"><div class="small muted" style="font-weight:800;margin-bottom:6px">CHANGER LE JOUEUR ACTIF</div><div class="tg" id="act">'+ro.map(p=>'<button class="pf'+(p.id===G.act?' sel':'')+'" data-a="'+esc(p.id)+'">'+esc(p.name)+'</button>').join('')+'</div></div></div>';
+  bindBar();
+  document.querySelectorAll('#act .pf').forEach(b=>b.onclick=()=>{ G.act=b.dataset.a; persist(); hostTurn(); emitState(); });
+  $('#draw').onclick=drawSituation;
+  $('#skip').onclick=()=>{ G.act=nextActive(); persist(); hostTurn(); emitState(); };
+}
+function drawSituation(){
+  if(!G.deck.length){ G.deck=SIT.map(s=>s.n); for(let i=G.deck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[G.deck[i],G.deck[j]]=[G.deck[j],G.deck[i]];} }
+  G.sid=G.deck.pop(); G.r++; G.votes={}; G.rv=null;
+  setPhase('vote');
+}
+function votedCount(){ const v=currentVotes(); return Object.keys(v).length; }
+function updateVotes(){
+  const el=$('#vlist'); if(!el) return; const v=currentVotes(), ro=roster();
+  el.innerHTML=ro.map(p=>'<div class="pr"><span class="nm">'+esc(p.name)+(p.id===G.act?' <span class="tag">actif</span>':'')+'</span>'+
+    (v[p.id]?'<span class="tag on">a répondu</span>':'<span class="tag">…</span>')+
+    (p.local?'<button class="btn sm '+(v[p.id]?'ghost':'')+'" data-v="'+esc(p.id)+'">'+(v[p.id]?'Modifier':'Voter')+'</button>':'')+'</div>').join('');
+  el.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>localVote(b.dataset.v));
+  const n=Object.keys(v).length, rb=$('#rev'); if(rb){ rb.disabled=n<1; rb.textContent='Révéler le corrigé ('+n+'/'+ro.length+')'; }
+}
+function hostVote(){
+  const s=SIT[SIDX[G.sid]];
+  $('#app').innerHTML='<div class="wrap wide">'+hostBar()+
+   '<div class="two"><div style="display:flex;flex-direction:column;gap:12px">'+sitCard(s)+'<p class="hint">Lisez la situation à voix haute. Chacun choisit un style, sans en parler.</p></div>'+
+   '<div class="card" style="display:flex;flex-direction:column;gap:12px"><h3 style="font-size:22px">Réponses</h3><div class="pl" id="vlist"></div>'+
+   '<button class="btn block" id="rev" disabled>Révéler le corrigé</button><button class="btn ghost sm" id="redraw" style="align-self:flex-start">Autre situation</button></div></div></div>';
+  bindBar(); updateVotes();
+  $('#rev').onclick=reveal;
+  $('#redraw').onclick=()=>{ drawSituation(); };
+}
+function localVote(pid){
+  const s=SIT[SIDX[G.sid]], name=(roster().find(p=>p.id===pid)||{}).name||'';
+  let sel=(G.votes[pid]&&G.votes[pid].rnd===roundKey())?G.votes[pid].s:null, pf=(G.votes[pid]&&G.votes[pid].p)||null;
+  const cv=document.createElement('div'); cv.className='cover'; cv.setAttribute('role','dialog'); cv.setAttribute('aria-label','Vote de '+name);
+  document.body.appendChild(cv);
+  const draw=()=>{
+    cv.innerHTML='<div class="wrap">'+'<div class="card" style="text-align:center"><div class="muted small" style="font-weight:800">AU TOUR DE</div><h2 style="font-size:38px">'+esc(name)+'</h2><p class="muted">Les autres ne regardent pas l’écran.</p></div>'+
+     sitCard(s)+
+     '<div class="styles">'+SKEYS.map(k=>'<button class="sb'+(sel===k?' sel':'')+(sel&&sel!==k?' dim':'')+'" data-k="'+esc(k)+'" style="background:'+sty(k).c+';color:'+sty(k).on+'">'+svg(k)+'<b>'+esc(k)+'</b><span>'+esc(sty(k).ph)+'</span></button>').join('')+'</div>'+
+     (G.teams?'<div class="card"><div class="small" style="font-weight:800;margin-bottom:6px">Profil annoncé</div><div class="profs">'+PKEYS.map(k=>'<button class="pf'+(pf===k?' sel':'')+'" data-p="'+k+'">'+esc(PROF[k].nom)+'</button>').join('')+'</div></div>':'')+
+     '<div class="row"><button class="btn grow" id="ok" '+(sel?'':'disabled')+'>Valider et cacher</button><button class="btn ghost" id="x">Annuler</button></div></div>';
+    cv.querySelectorAll('.sb').forEach(b=>b.onclick=()=>{ sel=b.dataset.k; draw(); });
+    cv.querySelectorAll('.pf').forEach(b=>b.onclick=()=>{ pf=b.dataset.p; draw(); });
+    $('#ok').onclick=()=>{ G.votes[pid]={s:sel,p:pf,rnd:roundKey()}; persist(); cv.remove(); updateVotes(); };
+    $('#x').onclick=()=>{ cv.remove(); };
+  };
+  draw();
+}
+function reveal(){
+  const s=SIT[SIDX[G.sid]], v=currentVotes(), ro=roster();
+  const rows=ro.map(p=>{ const x=v[p.id]; return [p.id, x?x.s:null, (G.teams&&x)?x.p:null, stepsFor(s,x?x.s:null,p.id===G.act,G.teams,x?x.p:null)]; });
+  G.rv=rows; G.hist.push({n:s.n,r:G.r,act:G.act,rows});
+  setPhase('reveal');
+}
+function nameFromRows(id){ return G.names[id]||'?'; }
+function hostReveal(){
+  const s=SIT[SIDX[G.sid]];
+  const fake={ro:roster().map(p=>[p.id,p.name]),rv:G.rv,act:G.act,sid:G.sid,tm:G.teams?1:0};
+  $('#app').innerHTML='<div class="wrap wide">'+hostBar()+
+   '<div class="two"><div style="display:flex;flex-direction:column;gap:12px">'+correction(s,G.teams)+'</div><div style="display:flex;flex-direction:column;gap:12px">'+
+   resultsCard(fake,null)+'<p class="hint">Chacun avance son pion du nombre de pas indiqué. Les pas bonus ne déclenchent aucune case.</p>'+
+   '<button class="btn block" id="nx">Joueur suivant</button></div></div></div>';
+  bindBar();
+  $('#nx').onclick=()=>{ G.act=nextActive(); setPhase('turn'); };
+}
+function endGame(){
+  const ids=[...new Set(G.order)];
+  G.sm=ids.map(id=>{ const t=statsOf(G.hist,id); return [id,G.names[id]||'?',t.id,t.ok,t.tot,t.steps]; }).filter(r=>r[4]>0);
+  ls('cm-host',null);
+  G.ph='end'; hostRender(); emitState(); window.scrollTo(0,0);
+}
+function hostEnd(){
+  const sm=G.sm||[], mat=matrixOf(G.hist,null);
+  const totRow=mat.map(r=>r.reduce((a,b)=>a+b,0));
+  let worst=-1, worstPct=2;
+  PKEYS.forEach((p,i)=>{ if(totRow[i]){ const g=mat[i][SKEYS.indexOf(PROF[p].ideal)]/totRow[i]; if(g<worstPct){worstPct=g;worst=i;} } });
+  const colTot=SKEYS.map((k,j)=>mat.reduce((a,r)=>a+r[j],0)); const topCol=colTot.indexOf(Math.max(...colTot));
+  const all=sm.reduce((a,r)=>[a[0]+r[2],a[1]+r[3],a[2]+r[4]],[0,0,0]);
+  $('#app').innerHTML='<div class="wrap wide">'+brand('<button class="btn ghost sm" id="nw">Nouvelle partie</button>')+
+   '<div class="card" style="display:flex;flex-direction:column;gap:12px"><h2>Bilan de la partie</h2>'+
+   '<div class="tw"><table><thead><tr><th>Joueur</th><th>Situations</th><th>Idéal</th><th>Idéal ou acceptable</th><th>Pas gagnés</th></tr></thead><tbody>'+
+   sm.map(r=>'<tr><td><b>'+esc(r[1])+'</b></td><td>'+r[4]+'</td><td>'+pct(r[2],r[4])+'</td><td>'+pct(r[2]+r[3],r[4])+'</td><td>'+r[5]+'</td></tr>').join('')+'</tbody></table></div></div>'+
+   '<div class="two"><div class="card" style="display:flex;flex-direction:column;gap:8px"><h3 style="font-size:20px">Matrice du groupe</h3><p class="hint">Lignes : profil réel. Colonnes : style joué. Cases cerclées : bonnes réponses.</p>'+matrixHTML(mat)+'</div>'+
+   '<div class="card" style="display:flex;flex-direction:column;gap:10px"><h3 style="font-size:20px">Pour le débrief</h3>'+
+   (all[2]?'<p>Le groupe a trouvé le style idéal <b>'+pct(all[0],all[2])+'</b> du temps, idéal ou acceptable <b>'+pct(all[0]+all[1],all[2])+'</b>.</p>':'')+
+   (worst>=0?'<p>Profil le plus souvent raté : <b>'+esc(PROF[PKEYS[worst]].nom)+'</b> (style idéal trouvé '+Math.round(100*worstPct)+' % du temps).</p>':'')+
+   (colTot[topCol]?'<p>Style le plus joué : <b>'+esc(SKEYS[topCol])+'</b> ('+colTot[topCol]+' fois).</p>':'')+
+   '<div class="note small">Questions : quel profil confondez-vous le plus ? Quel style jouez-vous par réflexe ? Que se passe-t-il si on garde le même style avec tout le monde ? Un même collaborateur peut-il changer de profil ? Quelle situation de votre travail ressemble à une carte jouée ?</div>'+
+   '<button class="btn ghost" id="csv">Télécharger le détail (CSV)</button>'+'</div></div></div>';
+  $('#nw').onclick=()=>{ stopHost(); viewRole(); };
+  const c=$('#csv'); if(c) c.onclick=()=>{ const b=new Blob([csv()],{type:'text/csv;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='cap-manager-'+G.code+'.csv'; document.body.appendChild(a); a.click(); a.remove(); };
+}
+function csv(){
+  const L=[['situation','theme','profil','joueur','joueur_actif','style_joue','style_ideal','resultat','pas']];
+  G.hist.forEach(h=>{ const s=SIT[SIDX[h.n]]; h.rows.forEach(r=>L.push([s.n,s.t,PROF[s.r].nom,G.names[r[0]]||'?',r[0]===h.act?'oui':'non',r[1]||'',ideal(s),VL[verdict(s,r[1])],r[3]])); });
+  return '﻿'+L.map(r=>r.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(';')).join('\r\n');
+}
+
+if(qs.get('room') && hasPeer) viewJoin(qs.get('room')); else viewRole();
+</script>
+</body></html>

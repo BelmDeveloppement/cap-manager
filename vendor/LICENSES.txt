@@ -1,0 +1,2 @@
+PeerJS 1.5.4 (peerjs.min.js) : licence MIT, © Michelle Bu, Eric Zhang et contributeurs. https://github.com/peers/peerjs
+qrcode-generator 1.4.4 (qrcode.js) : licence MIT, © Kazuhiko Arase. https://github.com/kazuhikoarase/qrcode-generator

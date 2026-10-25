@@ -144,7 +144,9 @@ function Host(code,onMsg,onClose){
   const conns={}, peer=new Peer('CM-'+code,PO);
   const ready=new Promise((ok,ko)=>{ peer.on('open',ok); peer.on('error',ko); });
   peer.on('connection',c=>{ c.on('open',()=>{ conns[c.peer]=c; }); c.on('data',d=>onMsg(c.peer,d)); c.on('close',()=>{ delete conns[c.peer]; onClose(c.peer); }); });
-  return {ready, send:(to,m)=>{ const c=conns[to]; if(c&&c.open) c.send(m); }, broadcast:m=>Object.values(conns).forEach(c=>{ if(c.open) c.send(m); }), destroy:()=>{ try{peer.destroy()}catch(e){} }};
+  peer.on('disconnected',()=>{ setTimeout(()=>{ try{ if(!peer.destroyed) peer.reconnect(); }catch(e){} },1500); });
+  return {ready, ok:()=>peer.open&&!peer.disconnected&&!peer.destroyed, dead:()=>peer.destroyed, reconnect:()=>{ try{ if(peer.disconnected&&!peer.destroyed) peer.reconnect(); }catch(e){} },
+    send:(to,m)=>{ const c=conns[to]; if(c&&c.open) c.send(m); }, broadcast:m=>Object.values(conns).forEach(c=>{ if(c.open) c.send(m); }), destroy:()=>{ try{peer.destroy()}catch(e){} }};
 }
 function Client(code,onMsg,onLost){
   const peer=new Peer(undefined,PO); let c=null;
@@ -252,22 +254,22 @@ function viewJoin(prefill){
   };
 }
 function connectPlayer(first){
-  P.lost=false;
+  if(first) P.lost=false;
   if(P.cli){ P.cli.destroy(); }
-  const cli=Client(P.code,m=>{ if(m && m.t==='state') onState(m); },()=>{ if(P.cli!==cli||ROLE!=='player') return; P.lost=true; renderPlayer(); scheduleRetry(); });
+  const cli=Client(P.code,m=>{ P.last=Date.now(); if(m && m.t==='state') onState(m); },()=>{ if(P.cli!==cli||ROLE!=='player') return; P.lost=true; renderPlayer(); scheduleRetry(); });
   P.cli=cli;
   cli.ready.then(()=>{
-    ROLE='player'; cli.send({t:'hello',pid:P.pid,name:P.name}); if(P.sel) sendVote(); renderPlayer();
+    ROLE='player'; try{ sessionStorage.setItem('cm-act','1'); }catch(e){} P.lost=false; P.last=Date.now(); cli.send({t:'hello',pid:P.pid,name:P.name}); if(P.sel) sendVote(); renderPlayer();
   },e=>{
     if(first){
       const el=$('#je'); if(!el) return;
       el.hidden=false; el.textContent=(e&&e.type==='peer-unavailable')?'Code inconnu. Vérifie le code affiché chez l’animateur.':'Connexion impossible. Vérifie le réseau (le partage de connexion de l’animateur peut aider) ou demande le mode « un seul écran ».';
       const g=$('#go'); if(g){ g.disabled=false; g.textContent='Rejoindre'; }
-    } else scheduleRetry();
+    } else { P.lost=true; renderPlayer(); scheduleRetry(); }
   });
 }
 function scheduleRetry(){ clearTimeout(retryT); retryT=setTimeout(()=>{ if(ROLE==='player'&&P.lost) connectPlayer(false); },3000); }
-function leavePlayer(){ clearTimeout(retryT); if(P.cli) P.cli.destroy(); P.cli=null; ROLE=null; P.st=null; viewRole(); }
+function leavePlayer(){ try{ sessionStorage.removeItem('cm-act'); }catch(e){} clearTimeout(retryT); if(P.cli) P.cli.destroy(); P.cli=null; ROLE=null; P.st=null; viewRole(); }
 function onState(s){
   if(!s || typeof s!=='object') return;
   if(s.e!==P.e){ P.e=s.e; P.q=0; P.hist=[]; P.sel=null; P.prof=null; P.seenR=null; }
@@ -322,7 +324,7 @@ function renderPlayer(){
   $('#app').innerHTML='<div class="wrap">'+head+lostB+body+'<button class="btn ghost sm" id="leave" style="align-self:flex-start">Quitter la partie</button></div>';
   document.querySelectorAll('.sb').forEach(b=>b.onclick=()=>setChoice(b.dataset.k));
   document.querySelectorAll('.pf').forEach(b=>b.onclick=()=>setProf(b.dataset.p));
-  $('#leave').onclick=leavePlayer;
+  $('#leave').onclick=()=>confirmBox('Quitter la partie ?',leavePlayer);
 }
 function rosterHTML(st){ return '<div class="pl" style="margin-top:12px">'+(st.ro||[]).map(r=>'<div class="pr"><span class="nm">'+esc(r[1])+'</span>'+(r[0]===P.pid?'<span class="me-t">toi</span>':'')+'</div>').join('')+'</div>'; }
 function rosterCard(st){ return '<div class="card"><div class="small muted" style="font-weight:800;margin-bottom:6px">JOUEURS</div>'+rosterHTML(st).replace('margin-top:12px','margin-top:0')+'</div>'; }
@@ -337,17 +339,18 @@ let G=null, H=null, REM={}, PEERPID={};
 const LOCAL_ONLY = ()=>ROLE==='local';
 
 function newGame(code){
-  return {e:rid(6),q:0,code,ph:'lobby',teams:false,locals:[],order:[],names:{},act:null,sid:null,r:0,deck:[],hist:[],votes:{},rv:null};
+  return {e:rid(6),q:0,code,ph:'lobby',teams:false,locals:[],order:[],names:{},act:null,sid:null,r:0,deck:[],hist:[],votes:{},rv:null,cls:defCls(),grp:''};
 }
 function openHost(code){
   return new Promise((ok,ko)=>{ let n=0;
     const go=()=>{ const h=Host(code,onClientMsg,onClientClose);
-      h.ready.then(()=>ok(h),e=>{ h.destroy(); if(e&&e.type==='unavailable-id'&&n++<6) setTimeout(go,2500); else ko(e); }); };
+      h.ready.then(()=>ok(h),e=>{ h.destroy(); if(e&&e.type==='unavailable-id'&&n++<40) setTimeout(go,2500); else ko(e); }); };
     go(); });
 }
 async function startHost(local){
   ROLE = local?'local':'host';
   const saved = ls('cm-host');
+  if(saved && saved.ph!=='end' && !!saved.local===!!local && Date.now()-(saved.ts||0)<8*3600*1000){ begin(saved); return; }
   if(saved && saved.ph!=='end' && !!saved.local===!!local){
     VIEW='resume';
     $('#app').innerHTML='<div class="wrap">'+brand()+'<div class="card" style="display:flex;flex-direction:column;gap:12px"><h2>Une partie est en cours</h2><p class="muted">Code '+esc(saved.code.toUpperCase())+' · '+saved.hist.length+' situation(s) jouée(s).</p>'+
@@ -372,7 +375,7 @@ async function startHost(local){
     persist(); hostRender(); emitState();
   }
 }
-function persist(){ if(G) ls('cm-host',G); }
+function persist(){ if(G){ G.ts=Date.now(); ls('cm-host',G); } }
 function onClientMsg(peerId,m){
   if(!G||!m||typeof m!=='object') return;
   if(m.t==='hello'){
@@ -420,7 +423,7 @@ function stateObj(){
   if(G.ph==='end') pay.sm=G.sm;
   return pay;
 }
-function emitState(){ if(!H||!G) return; H.broadcast(stateObj()); }
+function emitState(){ if(G) sendRep(); if(!H||!G) return; H.broadcast(stateObj()); }
 function stopHost(){ if(H) H.destroy(); H=null; G=null; REM={}; PEERPID={}; ROLE=null; }
 function nextActive(){
   const ro=roster(); if(!ro.length) return null;
@@ -438,10 +441,7 @@ function hostBar(){
 }
 function bindBar(){
   const b=$('#hq'); if(!b) return;
-  b.onclick=()=>{
-    if(b.dataset.armed){ endGame(); return; }
-    b.dataset.armed='1'; b.textContent='Confirmer la fin'; b.style.borderColor='var(--warn)'; setTimeout(()=>{ if(b.isConnected){ b.dataset.armed=''; b.textContent='Terminer'; b.style.borderColor=''; } },3500);
-  };
+  b.onclick=()=>confirmBox('Terminer la partie ? Les joueurs verront l’écran de fin.',()=>endGame());
 }
 function playersHTML(opts){
   const ro=roster();
@@ -463,6 +463,7 @@ function hostLobby(){
    '<div class="row" style="align-items:flex-start;gap:18px"><div><div class="muted small" style="font-weight:800">CODE DE LA PARTIE</div><div class="code">'+esc(G.code.toUpperCase())+'</div></div>'+
    '<div id="qr" style="background:#fff;padding:8px;border-radius:10px;width:150px;height:150px;flex:none" aria-label="QR code de connexion">'+qrSVG(joinURL(G.code))+'</div></div>'+
    '<p class="muted">Les joueurs scannent le QR code (ou ouvrent <b>'+esc(location.host+location.pathname)+'</b>, choisissent « Joueur ») et saisissent ce code et leur prénom.</p>')+
+   '<div class="soft" style="display:flex;flex-direction:column;gap:8px"><div class="small" style="font-weight:800">Suivi par l’enseignant (facultatif)</div><div class="row" style="flex-wrap:nowrap"><input type="text" id="gcls" maxlength="4" placeholder="Code classe" value="'+esc((G.cls||'').toUpperCase())+'" style="text-transform:uppercase;letter-spacing:.2em;max-width:130px" aria-label="Code classe"><input type="text" id="ggrp" maxlength="20" placeholder="Nom du groupe" value="'+esc(G.grp||'')+'" aria-label="Nom du groupe"></div><div class="tiny muted" id="pst" style="font-weight:700">'+esc(profStatusText())+'</div></div>'+
    '<label class="toggle"><input type="checkbox" id="tm" '+(G.teams?'checked':'')+'> Mode équipes : chaque équipe annonce aussi le profil (+1 pas)</label>'+
    '<div class="soft small"><b>Rappel des règles.</b> Le joueur actif lance le dé. Case « ? » : situation, tous choisissent, puis corrigé : actif +3 pas (idéal) ou +1 (acceptable), autres joueurs +1 pas s’ils ont le style idéal. Imprévu : pair +2 cases, impair −1. Pause café : on rejoue.</div>'+
    '</div><div class="card" style="display:flex;flex-direction:column;gap:12px"><div class="row" style="justify-content:space-between"><h3 style="font-size:22px">Joueurs (<span id="cnt">0</span>)</h3></div><div class="pl" id="plist"></div>'+
@@ -470,6 +471,8 @@ function hostLobby(){
    '<button class="btn block" id="start" disabled>Commencer la partie</button></div></div></div>';
   bindBar(); updatePlayers();
   $('#tm').onchange=e=>{ G.teams=e.target.checked; persist(); emitState(); };
+  const setCls=()=>{ G.cls=($('#gcls').value||'').toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,4); G.grp=($('#ggrp').value||'').trim().slice(0,20); try{ if(G.cls.length===4) sessionStorage.setItem('cm-cls',G.cls); }catch(e){} persist(); sendRep(); const p=$('#pst'); if(p) p.textContent=profStatusText(); };
+  $('#gcls').oninput=setCls; $('#ggrp').oninput=setCls; setCls();
   const add=()=>{ const v=$('#ln').value.trim(); if(!v) return; G.locals.push({id:'L'+rid(4),name:v.slice(0,18)}); $('#ln').value=''; persist(); updatePlayers(); emitState(); $('#ln').focus(); };
   $('#la').onclick=add; $('#ln').onkeydown=e=>{ if(e.key==='Enter') add(); };
   $('#start').onclick=()=>{ const ro=roster(); G.act=ro[0].id; setPhase('turn'); };
@@ -571,7 +574,7 @@ function hostEnd(){
    (colTot[topCol]?'<p>Style le plus joué : <b>'+esc(SKEYS[topCol])+'</b> ('+colTot[topCol]+' fois).</p>':'')+
    '<div class="note small">Questions : quel profil confondez-vous le plus ? Quel style jouez-vous par réflexe ? Que se passe-t-il si on garde le même style avec tout le monde ? Un même collaborateur peut-il changer de profil ? Quelle situation de votre travail ressemble à une carte jouée ?</div>'+
    '<button class="btn ghost" id="csv">Télécharger le détail (CSV)</button>'+'</div></div></div>';
-  $('#nw').onclick=()=>{ stopHost(); viewRole(); };
+  $('#nw').onclick=()=>confirmBox('Fermer ce bilan et revenir à l’accueil ?',()=>{ stopHost(); viewRole(); });
   const c=$('#csv'); if(c) c.onclick=()=>{ const b=new Blob([csv()],{type:'text/csv;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='cap-manager-'+G.code+'.csv'; document.body.appendChild(a); a.click(); a.remove(); };
 }
 function csv(){
@@ -580,6 +583,126 @@ function csv(){
   return '﻿'+L.map(r=>r.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(';')).join('\r\n');
 }
 
-if(qs.get('room') && hasPeer) viewJoin(qs.get('room')); else viewRole();
+/* ===================================================== Robustesse : sortie, veille, reconnexion */
+function confirmBox(msg,onYes){
+  const cv=document.createElement('div'); cv.className='cover'; cv.setAttribute('role','alertdialog'); cv.setAttribute('aria-label',msg);
+  cv.innerHTML='<div class="wrap" style="justify-content:center;min-height:100vh"><div class="card" style="display:flex;flex-direction:column;gap:16px;text-align:center"><h2 style="font-size:26px">'+esc(msg)+'</h2><div style="display:flex;gap:10px"><button class="btn" id="cn-yes" style="flex:1;background:var(--warn);color:#fff">Oui</button><button class="btn ghost" id="cn-no" style="flex:1">Non</button></div></div></div>';
+  document.body.appendChild(cv);
+  cv.querySelector('#cn-no').onclick=()=>cv.remove();
+  cv.querySelector('#cn-yes').onclick=()=>{ cv.remove(); onYes(); };
+  cv.querySelector('#cn-no').focus();
+}
+const inGameHost = ()=>(ROLE==='host'||ROLE==='local') && G && G.ph!=='end';
+window.addEventListener('beforeunload',e=>{ if(inGameHost()){ e.preventDefault(); e.returnValue=''; return ''; } });
+try{ history.pushState({cm:1},''); }catch(e){}
+window.addEventListener('popstate',()=>{
+  const busy = inGameHost() || ROLE==='player';
+  if(!busy){ history.back(); return; }
+  try{ history.pushState({cm:1},''); }catch(e){}
+  if(document.querySelector('.cover')) return;
+  if(inGameHost()) confirmBox('Terminer la partie ? Les joueurs seront coupés.',()=>endGame()); else confirmBox('Quitter la partie ?',leavePlayer);
+});
+let WL=null;
+async function keepAwake(){ try{ if(navigator.wakeLock && !document.hidden && !WL && (inGameHost()||ROLE==='player'||ROLE==='prof')){ WL=await navigator.wakeLock.request('screen'); WL.addEventListener('release',()=>{ WL=null; }); } }catch(e){ WL=null; } }
+let HOK=Date.now(), REVIVING=false;
+function reviveHost(){
+  if(ROLE!=='host'||!G||G.ph==='end'||!H||REVIVING) return;
+  if(H.ok()){ HOK=Date.now(); return; }
+  H.reconnect();
+  if(H.dead()||Date.now()-HOK>15000){
+    REVIVING=true; try{ H.destroy(); }catch(e){}
+    openHost(G.code).then(h=>{ H=h; HOK=Date.now(); REVIVING=false; emitState(); },()=>{ REVIVING=false; });
+  }
+}
+function checkPlayer(force){
+  if(ROLE!=='player'||!P.cli||P.lost) return;
+  if(Date.now()-(P.last||0)>(force?6000:13000)){ P.lost=true; renderPlayer(); connectPlayer(false); }
+}
+setInterval(()=>{ keepAwake(); if(ROLE==='host'&&G&&H){ reviveHost(); if(H.ok()) H.broadcast({t:'ping'}); } if((ROLE==='host'||ROLE==='local')&&G) sendRep(); const ps=document.getElementById('pst'); if(ps) ps.textContent=profStatusText(); checkPlayer(false); },4000);
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ keepAwake(); reviveHost(); checkPlayer(true); } });
+window.addEventListener('online',()=>{ reviveHost(); checkPlayer(true); });
+
+/* ===================================================== Suivi enseignant (écran projeté) */
+const PRF={peer:null,conn:null,cls:null,busy:false,last:0};
+function defCls(){ let c=''; try{ c=qs.get('classe')||sessionStorage.getItem('cm-cls')||''; }catch(e){} return String(c).toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,4); }
+function profClose(){ try{ if(PRF.peer) PRF.peer.destroy(); }catch(e){} PRF.peer=null; PRF.conn=null; PRF.busy=false; }
+function profEnsure(){
+  if(!G||!G.cls||G.cls.length!==4||!hasPeer) return;
+  if(PRF.cls!==G.cls){ profClose(); PRF.cls=G.cls; }
+  if(PRF.conn&&PRF.conn.open) return;
+  if(PRF.busy&&Date.now()-PRF.last<12000) return;
+  PRF.busy=true; PRF.last=Date.now();
+  try{ if(PRF.peer) PRF.peer.destroy(); }catch(e){}
+  const peer=new Peer(undefined,PO); PRF.peer=peer;
+  peer.on('open',()=>{ const c=peer.connect('CMT-'+PRF.cls,{reliable:true}); PRF.conn=c;
+    c.on('open',()=>{ PRF.busy=false; sendRep(); });
+    c.on('close',()=>{ if(PRF.conn===c){ PRF.conn=null; PRF.busy=false; } });
+    c.on('error',()=>{ PRF.busy=false; }); });
+  peer.on('error',()=>{ PRF.busy=false; });
+}
+function buildRep(){
+  const ro=roster(), cur=currentVotes(), act=(ro.find(p=>p.id===G.act)||{}).name||'';
+  const ids=[...new Set(G.order.concat(G.locals.map(l=>l.id)))];
+  const pl=ids.map(id=>{ const t=statsOf(G.hist,id); return [G.names[id]||'?',t.steps,t.id,t.tot]; });
+  const th={}; G.hist.forEach(h=>{ const s=SIT[SIDX[h.n]]; th[s.t]=th[s.t]||[0,0]; h.rows.forEach(r=>{ if(r[1]==null) return; th[s.t][1]++; if(verdict(s,r[1])==='ideal') th[s.t][0]++; }); });
+  return {t:'rep',id:G.code,gn:G.grp||('Groupe '+G.code.toUpperCase()),ph:G.ph,act:act,vn:Object.keys(cur).length,np:ro.length,sit:G.hist.length,pl:pl,th:Object.keys(th).map(k=>[k,th[k][0],th[k][1]])};
+}
+function sendRep(){
+  if(!G||!G.cls) return; profEnsure();
+  const c=PRF.conn; if(c&&c.open){ try{ c.send(buildRep()); }catch(e){} }
+}
+function profStatusText(){ return !G||!G.cls?'Non relié':(PRF.conn&&PRF.conn.open?'Relié à l’enseignant ✓':'Connexion à l’enseignant…'); }
+function viewProf(){
+  VIEW='prof'; ROLE='prof';
+  let sv=ls('cm-prof'); if(!sv||!sv.code){ sv={code:rid(4)}; ls('cm-prof',sv); }
+  const code=sv.code, GR={}; let peer=null, tries=0, up=false;
+  const phLabel=r=>{ if(r.off) return 'Déconnecté'; if(Date.now()-r.seen>20000) return 'Pas de signal'; return ({lobby:'Salon d’attente',turn:'Tour de '+(r.act||'?'),vote:'Vote : '+r.vn+'/'+r.np,reveal:'Corrigé en cours',end:'Terminé'})[r.ph]||r.ph; };
+  const open=()=>{
+    peer=new Peer('CMT-'+code,PO);
+    peer.on('open',()=>{ up=true; draw(); });
+    peer.on('error',e=>{ up=false; if(e&&e.type==='unavailable-id'&&tries++<40){ setTimeout(()=>{ try{peer.destroy()}catch(_){} open(); },2500); } draw(); });
+    peer.on('disconnected',()=>{ up=false; setTimeout(()=>{ try{ if(!peer.destroyed) peer.reconnect(); }catch(_){} },1500); });
+    peer.on('open',()=>{});
+    peer.on('connection',c=>{
+      c.on('data',d=>{ if(d&&d.t==='rep'&&d.id){ c.__g=d.id; GR[d.id]=Object.assign({},d,{seen:Date.now()}); draw(); } });
+      c.on('close',()=>{ if(c.__g&&GR[c.__g]){ GR[c.__g].off=true; draw(); } });
+    });
+  };
+  const draw=()=>{
+    if(VIEW!=='prof') return;
+    const gs=Object.values(GR).sort((a,b)=>a.gn.localeCompare(b.gn,'fr',{numeric:true}));
+    const nP=gs.reduce((a,g)=>a+g.pl.length,0), tot=gs.reduce((a,g)=>a+g.pl.reduce((x,p)=>x+p[3],0),0), idl=gs.reduce((a,g)=>a+g.pl.reduce((x,p)=>x+p[2],0),0);
+    const T={}; gs.forEach(g=>(g.th||[]).forEach(r=>{ T[r[0]]=T[r[0]]||[0,0]; T[r[0]][0]+=r[1]; T[r[0]][1]+=r[2]; }));
+    const themes=Object.keys(T).filter(k=>T[k][1]>0).map(k=>[k,T[k][0],T[k][1]]).sort((a,b)=>a[1]/a[2]-b[1]/b[2]);
+    const tile=g=>{ const pl=g.pl.slice().sort((a,b)=>b[1]-a[1]), live=!g.off&&Date.now()-g.seen<=20000;
+      return '<div class="pt" style="opacity:'+(live?1:.55)+'"><div class="row" style="justify-content:space-between;align-items:center"><b class="pn">'+esc(g.gn)+'</b><span class="tag'+(g.ph==='vote'?' on':'')+'">'+esc(phLabel(g))+'</span></div>'+
+        '<div class="muted small" style="font-weight:700">'+g.sit+' situation'+(g.sit>1?'s':'')+' jouée'+(g.sit>1?'s':'')+' · '+g.np+' joueur'+(g.np>1?'s':'')+' connecté'+(g.np>1?'s':'')+'</div>'+
+        (pl.length?pl.map((p,i)=>'<div class="pr"><span class="nm">'+(i===0&&p[1]>0?'🏆 ':'')+esc(p[0])+'</span><span class="muted tiny">'+(p[3]?pct(p[2],p[3])+' idéal':'—')+'</span><b style="min-width:64px;text-align:right">'+p[1]+' pas</b></div>').join(''):'<div class="muted small">Aucun joueur pour l’instant.</div>')+'</div>'; };
+    $('#app').innerHTML='<style>.pg{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px}.pt{background:var(--card,#fff);border:1.5px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:8px}.pn{font-size:clamp(20px,2.2vw,30px)}.pt .pr{font-size:clamp(16px,1.5vw,22px)}.pcode{font-family:var(--f-title);font-size:clamp(40px,6vw,84px);letter-spacing:.12em;line-height:1}</style>'+
+      '<div class="wrap wide">'+brand('<button class="btn ghost sm" id="fs">Plein écran</button>')+
+      '<div class="card" style="display:flex;flex-wrap:wrap;gap:20px;align-items:center;justify-content:space-between"><div><div class="muted small" style="font-weight:800">SUIVI DE LA CLASSE · CODE CLASSE (à saisir chez chaque animateur)</div><div class="pcode">'+esc(code.toUpperCase())+'</div>'+
+      '<div class="muted small" style="font-weight:700;margin-top:6px">'+(up?'Écran en ligne':'Connexion en cours…')+' · '+gs.length+' groupe'+(gs.length>1?'s':'')+' · '+nP+' joueur'+(nP>1?'s':'')+(tot?' · '+pct(idl,tot)+' de choix idéaux':'')+'</div></div>'+
+      '<div style="text-align:center"><div style="background:#fff;padding:8px;border-radius:10px;width:150px;height:150px" aria-label="QR code classe">'+qrSVG(location.origin+location.pathname+'?classe='+code)+'</div><div class="muted tiny" style="font-weight:700;margin-top:4px">Animateurs : scannez</div></div></div>'+
+      (gs.length?'<div class="pg">'+gs.map(tile).join('')+'</div>':'<div class="card"><h2>En attente des groupes</h2><p class="muted">Chaque animateur crée sa partie, saisit le code classe ci-dessus dans « Suivi par l’enseignant » (ou scanne ce QR code avant de créer la partie) puis donne un nom à son groupe.</p></div>')+
+      (themes.length?'<div class="card" style="display:flex;flex-direction:column;gap:8px"><h3 style="font-size:22px">Réussite de la classe par thème (du plus difficile au plus facile)</h3>'+themes.map(r=>'<div class="pr"><span class="nm">'+esc(r[0])+'</span><span class="muted tiny">'+r[2]+' réponses</span><b style="min-width:64px;text-align:right">'+pct(r[1],r[2])+'</b></div>').join('')+'</div>':'')+
+      '<div class="row"><button class="btn ghost sm" id="clr">Effacer les groupes</button><button class="btn ghost sm" id="ncode">Nouveau code classe</button></div></div>';
+    $('#fs').onclick=()=>{ try{ if(document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen(); }catch(e){} };
+    $('#clr').onclick=()=>confirmBox('Effacer tous les groupes affichés ?',()=>{ Object.keys(GR).forEach(k=>delete GR[k]); draw(); });
+    $('#ncode').onclick=()=>confirmBox('Créer un nouveau code classe ? Les animateurs devront le ressaisir.',()=>{ ls('cm-prof',null); try{ peer.destroy(); }catch(e){} viewProf(); });
+  };
+  open(); draw(); setInterval(()=>{ if(VIEW==='prof') draw(); },5000);
+}
+
+(function(){
+  if(qs.get('prof')){ viewProf(); return; }
+  if(qs.get('classe')){ try{ sessionStorage.setItem('cm-cls',defCls()); }catch(e){} }
+  let sv=null, act=null; try{ act=sessionStorage.getItem('cm-act'); }catch(e){}
+  sv=ls('cm-host');
+  if(sv && sv.ph!=='end' && Date.now()-(sv.ts||0)<8*3600*1000 && (hasPeer||sv.local)){ startHost(!!sv.local); return; }
+  const pl=ls('cm-player');
+  if(act && pl && pl.code && pl.name && hasPeer){ viewJoin(pl.code); const g=$('#go'); if(g) g.click(); return; }
+  if(qs.get('room') && hasPeer) viewJoin(qs.get('room')); else viewRole();
+})();
+
 </script>
 </body></html>

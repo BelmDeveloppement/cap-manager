@@ -655,12 +655,12 @@ function profStatusText(){ return !G||!G.cls?'Non relié':(PRF.conn&&PRF.conn.op
 function viewProf(){
   VIEW='prof'; ROLE='prof';
   let sv=ls('cm-prof'); if(!sv||!sv.code){ sv={code:rid(4)}; ls('cm-prof',sv); }
-  const code=sv.code, GR={}; let peer=null, tries=0, up=false;
+  const code=sv.code, GR={}; let peer=null, tries=0, up=false, dup=false;
   const phLabel=r=>{ if(r.off) return 'Déconnecté'; if(Date.now()-r.seen>20000) return 'Pas de signal'; return ({lobby:'Salon d’attente',turn:'Tour de '+(r.act||'?'),vote:'Vote : '+r.vn+'/'+r.np,reveal:'Corrigé en cours',end:'Terminé'})[r.ph]||r.ph; };
   const open=()=>{
     peer=new Peer('CMT-'+code,PO);
-    peer.on('open',()=>{ up=true; draw(); });
-    peer.on('error',e=>{ up=false; if(e&&e.type==='unavailable-id'&&tries++<40){ setTimeout(()=>{ try{peer.destroy()}catch(_){} open(); },2500); } draw(); });
+    peer.on('open',()=>{ up=true; dup=false; draw(); });
+    peer.on('error',e=>{ up=false; if(e&&e.type==='unavailable-id'&&tries>2) dup=true; if(e&&e.type==='unavailable-id'&&tries++<40){ setTimeout(()=>{ try{peer.destroy()}catch(_){} open(); },2500); } draw(); });
     peer.on('disconnected',()=>{ up=false; setTimeout(()=>{ try{ if(!peer.destroyed) peer.reconnect(); }catch(_){} },1500); });
     peer.on('open',()=>{});
     peer.on('connection',c=>{
@@ -684,12 +684,12 @@ function viewProf(){
       '<div class="muted small" style="font-weight:700;margin-top:6px">'+(up?'Écran en ligne':'Connexion en cours…')+' · '+gs.length+' groupe'+(gs.length>1?'s':'')+' · '+nP+' joueur'+(nP>1?'s':'')+(tot?' · '+pct(idl,tot)+' de choix idéaux':'')+'</div></div>'+
       '<div style="text-align:center"><div style="background:#fff;padding:8px;border-radius:10px;width:150px;height:150px" aria-label="QR code classe">'+qrSVG(location.origin+location.pathname+'?classe='+code)+'</div></div></div>'+
       '<div style="background:var(--warn);color:#fff;border-radius:14px;padding:14px 18px;text-align:center;font-family:var(--f-title);font-weight:800;font-size:clamp(20px,2.9vw,40px);line-height:1.15">Seuls les animateurs scannent ce QR code !!!<div style="font-size:.5em;font-weight:700;margin-top:4px">Un seul élève par équipe. Les autres joueurs attendent le QR code de leur animateur.</div></div>'+
-      (gs.length?'<div class="pg">'+gs.map(tile).join('')+'</div>':'<div class="card"><h2>En attente des groupes</h2><p class="muted">Chaque animateur crée sa partie, saisit le code classe ci-dessus dans « Suivi par l’enseignant » (ou scanne ce QR code avant de créer la partie) puis donne un nom à son groupe.</p></div>')+
+      (dup?'<div class="card err" role="alert">Ce code classe est déjà affiché sur un autre écran enseignant. Il ne peut y avoir qu’un seul écran actif : fermez l’autre page (après un rechargement, patientez une minute).</div>':'')+
+      (gs.length?'<div class="pg">'+gs.map(tile).join('')+'</div>':'<div class="card"><h2>En attente des groupes</h2><p class="muted">Un animateur par équipe scanne le QR code ci-dessus : sa partie est créée automatiquement sur son téléphone, il donne un nom à son équipe et montre le QR code de l’équipe aux autres joueurs.</p></div>')+
       (themes.length?'<div class="card" style="display:flex;flex-direction:column;gap:8px"><h3 style="font-size:22px">Réussite de la classe par thème (du plus difficile au plus facile)</h3>'+themes.map(r=>'<div class="pr"><span class="nm">'+esc(r[0])+'</span><span class="muted tiny">'+r[2]+' réponses</span><b style="min-width:64px;text-align:right">'+pct(r[1],r[2])+'</b></div>').join('')+'</div>':'')+
-      '<div class="row"><button class="btn ghost sm" id="clr">Effacer les groupes</button><button class="btn ghost sm" id="ncode">Nouveau code classe</button></div></div>';
+      '<div class="row"><button class="btn ghost sm" id="clr">Effacer les groupes</button></div></div>';
     $('#fs').onclick=()=>{ try{ if(document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen(); }catch(e){} };
     $('#clr').onclick=()=>confirmBox('Effacer tous les groupes affichés ?',()=>{ Object.keys(GR).forEach(k=>delete GR[k]); draw(); });
-    $('#ncode').onclick=()=>confirmBox('Créer un nouveau code classe ? Les animateurs devront le ressaisir.',()=>{ ls('cm-prof',null); try{ peer.destroy(); }catch(e){} viewProf(); });
   };
   open(); draw(); setInterval(()=>{ if(VIEW==='prof') draw(); },5000);
 }
@@ -699,7 +699,9 @@ function viewProf(){
   if(qs.get('classe')){ try{ sessionStorage.setItem('cm-cls',defCls()); }catch(e){} }
   let sv=null, act=null; try{ act=sessionStorage.getItem('cm-act'); }catch(e){}
   sv=ls('cm-host');
+  if(qs.get('classe') && sv && sv.cls!==defCls()){ ls('cm-host',null); sv=null; }
   if(sv && sv.ph!=='end' && Date.now()-(sv.ts||0)<8*3600*1000 && (hasPeer||sv.local)){ startHost(!!sv.local); return; }
+  if(qs.get('classe') && !qs.get('room') && hasPeer){ startHost(false); return; }
   const pl=ls('cm-player');
   if(act && pl && pl.code && pl.name && hasPeer){ viewJoin(pl.code); const g=$('#go'); if(g) g.click(); return; }
   if(qs.get('room') && hasPeer) viewJoin(qs.get('room')); else viewRole();

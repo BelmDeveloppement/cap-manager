@@ -1,4 +1,4 @@
-# CAP MANAGER
+# Le bon style
 
 Jeu de plateau de management situationnel (plateau + dé) avec application téléphone : 72 situations, choix du style en secret, corrigé, pas à avancer, bilan de fin.
 

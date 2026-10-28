@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>CAP MANAGER</title>
-<meta name="description" content="CAP MANAGER : jeu de plateau de management situationnel, avec application téléphone.">
+<title>Le bon style</title>
+<meta name="description" content="Le bon style : jeu de plateau de management situationnel, avec application téléphone.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@500;600;700;800&display=swap">
 <style>
@@ -173,7 +173,7 @@ function verdict(s, style){ return !style ? 'none' : style===ideal(s) ? 'ideal' 
 const VL = {ideal:'Style idéal', ok:'Style acceptable', miss:'Style raté', none:'Pas de réponse'};
 function chipFor(style){ return style ? '<span class="chip" style="background:'+sty(style).c+';color:'+sty(style).on+'">'+esc(style)+'</span>' : '<span class="chip" style="background:var(--line)">—</span>'; }
 function gauge(v,col){ return '<div class="gauge" aria-label="'+v+' sur 5">'+[0,1,2,3,4].map(i=>'<i style="'+(i<v?'background:'+col:'')+'"></i>').join('')+'</div>'; }
-function brand(extra){ return '<div class="brand"><b>CAP MANAGER</b><div class="row" style="gap:12px">'+(extra||'')+'<div class="dots"><i style="background:var(--dir)"></i><i style="background:var(--ent)"></i><i style="background:var(--ass)"></i><i style="background:var(--con)"></i></div></div></div>'; }
+function brand(extra){ return '<div class="brand"><b>Le bon style</b><div class="row" style="gap:12px">'+(extra||'')+'<div class="dots"><i style="background:var(--dir)"></i><i style="background:var(--ent)"></i><i style="background:var(--ass)"></i><i style="background:var(--con)"></i></div></div></div>'; }
 function sitCard(s, showAnswerHint){
   return '<div class="card" style="display:flex;flex-direction:column;gap:14px"><div class="row" style="justify-content:space-between"><span class="pill">'+esc(s.t)+'</span><span class="muted tiny" style="font-weight:800">Situation n° '+String(s.n).padStart(2,'0')+'</span></div>'+
     '<div class="who"><div class="av">'+esc(s.p[0])+'</div><div style="min-width:0"><h2>'+esc(s.p)+'</h2><div class="muted small">'+esc(s.s)+'</div></div></div>'+
